@@ -1011,7 +1011,7 @@ class JudgeStep:
 
         sections: dict[str, str] = {}
         try:
-            from scripts.evidence_grounding import _context_sections
+            from scripts.packet_context import _context_sections
 
             context_text = (packet / "context.txt").read_text(encoding="utf-8")
             manifest = json.loads((packet / "manifest.json").read_text(encoding="utf-8"))

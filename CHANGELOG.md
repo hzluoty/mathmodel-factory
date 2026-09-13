@@ -4,6 +4,7 @@
 
 - Merge the September 10–12 audit, delivery recovery, input-version and UI repairs while retaining the current architecture and document/numerical evidence contracts.
 - Register new artifact rules in the current native ownership extension; preserve the frozen registry and keep receipt-proved final reports at their finalization owner during rebases.
+- Share packet context and asset verification through an independent module so production entrypoints retain the Phase 7/8 import boundary. Audit fingerprints include the shared implementation.
 - Bind complete role-local assets to native audit batches and both filesystem and byte grounding APIs, alongside existing rendered document evidence.
 - Preserve native cursor display and current audit/delivery status controls. This source integration does not redeploy or restart the running server.
 - Refresh operational source manifests, unchanged-symbol locations and their deterministically derived identity fixtures. The legacy classifier and workflow semantic hashes remain unchanged; golden replay is verified across five hash seeds.

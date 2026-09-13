@@ -163,6 +163,7 @@ def evaluator_contract_payload(
         "scripts/build_objective_evidence.py",
         "scripts/judge_reliability.py",
         "scripts/evidence_grounding.py",
+        "scripts/packet_context.py",
         "scripts/aggregate_judges.py",
         "scripts/judge_decision_router.py",
         "scripts/judgment_receipt.py",

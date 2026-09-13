@@ -45,7 +45,7 @@ def descriptor(project, root, step_id, role, template_prompt, *, prompt_format="
     images = []
     for r in ("math", "execution", "paper"):
         manifest = json.loads((project / f"judge_packets/{r}/manifest.json").read_text())
-        from scripts.evidence_grounding import _read_role_asset
+        from scripts.packet_context import _read_role_asset
         from scripts.packet_evidence import PacketEvidence
         evidence = PacketEvidence(manifest.get("files", []))
         for item in manifest.get("files", []):
