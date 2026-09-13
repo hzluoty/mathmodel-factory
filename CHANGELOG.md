@@ -6,6 +6,8 @@
 - Register new artifact rules in the current native ownership extension; preserve the frozen registry and keep receipt-proved final reports at their finalization owner during rebases.
 - Bind complete role-local assets to native audit batches and both filesystem and byte grounding APIs, alongside existing rendered document evidence.
 - Preserve native cursor display and current audit/delivery status controls. This source integration does not redeploy or restart the running server.
+- Refresh operational source manifests, unchanged-symbol locations and their deterministically derived identity fixtures. The legacy classifier and workflow semantic hashes remain unchanged; golden replay is verified across five hash seeds.
+- Declare openpyxl in the locked development dependencies so the workbook regression runs in the minimal CI environment.
 - CI uses relative runtime aliases that remain resolvable during sandbox setup;
   explicit source overrides retain precedence over shared test fixture caches.
 - Formal P0 and audit execution preserve read-only candidate sources, trusted

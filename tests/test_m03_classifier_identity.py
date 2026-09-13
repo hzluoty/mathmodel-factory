@@ -153,5 +153,5 @@ def test_classifier_semantic_identity_golden() -> None:
         "1138ae842c8df3dbbc3e52e88dc2080e8fc136e820c0a242d2342e8c12e54ca3"
     )
     assert dirty_classifier_operational_implementation_sha256() == (
-        "717ab065619f01741f64b64992d7461d6298f26bf3be8b668ea3e9282a0566fb"
+        "9a1209a7c9d3315faa29c6bc97f1447d79148fcb280e4468353fcc170ab096cb"
     )
