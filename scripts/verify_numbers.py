@@ -394,6 +394,22 @@ def _strip_non_content_latex(line: str) -> str:
     line = re.sub(r'(?<=\d)\s*--+\s*(?=\d)', ' ', line)
     # Explicit Chinese section cross-references are document coordinates.
     line = re.sub(r'第\s*\d+(?:\.\d+)*(?:[、,，]\s*\d+(?:\.\d+)*)*\s*[节章]', '', line)
+    # ``lstinputlisting`` options are often split across several lines.  The
+    # whole command is removed below when it is written on one line, but a
+    # bare option such as ``lastline=650`` otherwise looks like a scientific
+    # result to the numeric scanner.  These values select source-code lines;
+    # they are layout metadata and must not be matched against results/*.json.
+    line = re.sub(
+        r'^\s*(?:firstline|lastline|firstnumber|stepnumber|linerange)\s*=.*$',
+        '',
+        line,
+    )
+    line = re.sub(r'\\lstinputlisting(?:\[[^\]]*\])?\{[^}]*\}', '', line)
+    line = re.sub(
+        r'\\begin\{(?:longtable|tabularx?|array)\}\{.*\}',
+        '',
+        line,
+    )
     line = re.sub(r'\\includegraphics(?:\[[^\]]*\])?\{[^}]*\}', '', line)
     line = re.sub(
         r'\\(?:label|ref|pageref|cite[tp]?|citealp|hypersetup|bibliographystyle|bibliography)\{[^}]*\}',
@@ -401,9 +417,24 @@ def _strip_non_content_latex(line: str) -> str:
         line,
     )
     line = re.sub(r'\\(?:begin|end)\{[^}]*\}', '', line)
-    # Avoid false positives from LaTeX command names and exponent notation:
-    # \approx1.23 should expose 1.23, not a bogus 23; 10^{-6} should not
-    # emit -6 as a standalone result number.
+    # Normalize scientific notation before stripping LaTeX commands.  The
+    # numerical checker must compare the complete value, not the displayed
+    # coefficient in ``1.23\times 10^{-6}``.
+    line = re.sub(
+        r'(?P<coefficient>[+-]?\d+(?:\.\d+)?)\s*\\(?:times|cdot)\s*'
+        r'10\^(?:\{(?P<braced_exponent>[+-]?\d+)\}|(?P<plain_exponent>[+-]?\d+))',
+        lambda match: (
+            f"{match.group('coefficient')}e"
+            f"{match.group('braced_exponent') or match.group('plain_exponent')}"
+        ),
+        line,
+    )
+    # TeX ``--`` denotes a range dash.  Without normalization the second
+    # endpoint is incorrectly parsed as a negative number.
+    line = line.replace("--", " ")
+    # Avoid false positives from LaTeX command names and remaining exponent
+    # notation: \approx1.23 should expose 1.23, not a bogus 23; 10^{-6}
+    # without an explicit coefficient should not emit -6 as a result number.
     line = re.sub(r'\^\{[-+]?\d+\}', '', line)
     line = re.sub(r'\^[+-]?\d+', '', line)
     line = re.sub(r'\\[a-zA-Z]+\*?', ' ', line)
@@ -512,6 +543,9 @@ def verify_paper(project_dir: Path, base_name: str) -> bool:
         return False
 
     key_result_source_issues = validate_key_result_sources(project_dir)
+    from scripts.canonical_claims import verify as verify_canonical_claims
+    key_result_source_issues.extend(("canonical_version", "results/canonical_claims.json", error)
+        for error in verify_canonical_claims(project_dir, base_name))
 
     # Extract numbers from paper
     paper_file = primary_paper_source(project_dir, base_name)

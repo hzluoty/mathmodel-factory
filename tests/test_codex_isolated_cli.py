@@ -42,7 +42,7 @@ def test_isolated_command_is_accepted_by_installed_cli_parser(tmp_path):
         pytest.skip("Codex CLI is not installed")
     argv = isolated_command(tmp_path)
     # Help validates CLI flags without launching a model or spending account usage.
-    result = subprocess.run(argv[:-1] + ["--help"], text=True, capture_output=True, timeout=15)
+    result = subprocess.run(argv[:argv.index("--")] + ["--help"], text=True, capture_output=True, timeout=15)
     assert result.returncode == 0, result.stderr
     assert "unexpected argument" not in result.stderr
 

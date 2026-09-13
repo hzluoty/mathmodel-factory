@@ -4,17 +4,19 @@
       <span class="node" :class="['st-' + state(s), 'kind-' + s.kind]" :title="tip(s)">
         <span v-if="!compact" class="num">{{ s.index }}</span>
       </span>
-      <span v-if="s.index < 16" class="seg" :class="{ on: s.index <= (project?.last_completed_step ?? currentStep) }"></span>
+      <span v-if="s.index < 16" class="seg" :class="{ on: state(s) === 'done' }"></span>
     </template>
   </div>
 </template>
 
 <script>
-import { STEPS, projectStepStatus } from '../lib/steps.js'
+import { STEPS, stepStatus } from '../lib/steps.js'
+import { workflowStepState } from '../lib/projectState.js'
 
 export default {
   name: 'StepRail',
   props: {
+    project: { type: Object, default: null },
     currentStep: { type: Number, default: -1 },
     project: { type: Object, default: null },
     awaiting: { type: Boolean, default: false },
@@ -23,7 +25,8 @@ export default {
   data() { return { STEPS } },
   methods: {
     state(s) {
-      const st = projectStepStatus(s.index, this.project, this.currentStep)
+      if (this.project) return workflowStepState(s.index, this.project)
+      const st = stepStatus(s.index, this.currentStep)
       if (st === 'active') return this.awaiting ? 'attention' : 'live'
       return st
     },
@@ -82,6 +85,9 @@ export default {
 .st-attention { --c: var(--amber); background: var(--amber); color: var(--amber-ink); box-shadow: 0 0 0 4px var(--amber-dim); animation: attnpulse 1.3s var(--ease) infinite; }
 .st-attention .num { color: var(--amber-ink); }
 .st-pending { --c: var(--ink-3); background: var(--panel); }
+.st-blocked { --c: var(--bad); background: var(--bad-dim); }
+.st-paused { --c: var(--paused); background: var(--paused-dim); }
+.st-retrying { --c: var(--amber); background: var(--amber-dim); }
 
 .kind-human.st-live, .kind-human.st-attention { box-shadow: 0 0 0 3px var(--panel), 0 0 0 4.5px var(--c); }
 

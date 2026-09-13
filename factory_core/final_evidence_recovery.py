@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 
-from .artifact_ownership import artifact_ownership
-from .dirty import capture_artifact_manifest, classifier_contract_sha256, manifest_fingerprint
+from .current_artifact_ownership import artifact_ownership
+from .current_dirty import capture_artifact_manifest, classifier_contract_sha256, manifest_fingerprint
 from .domain import InvalidTransition, RevisionConflict, SCHEMA_VERSION
 from .workflow_events import canonical_hash
 

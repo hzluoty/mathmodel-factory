@@ -1,5 +1,5 @@
-from factory_core.artifact_ownership import artifact_ownership
-from factory_core.dirty import capture_artifact_manifest, classify_manifest_changes
+from factory_core.current_artifact_ownership import artifact_ownership
+from factory_core.current_dirty import capture_artifact_manifest, classify_manifest_changes
 
 def test_scope_review_is_final_input_and_reopens_final_audit(tmp_path):
     p=tmp_path/'models/reporting_scope/scope_review_manifest.json'

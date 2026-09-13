@@ -6,7 +6,7 @@ import pytest
 
 from factory_core import final_judge_projection as mod
 from factory_core.domain import InvalidTransition
-from factory_core.dirty import classifier_contract_sha256,capture_artifact_manifest,manifest_fingerprint
+from factory_core.current_dirty import classifier_contract_sha256,capture_artifact_manifest,manifest_fingerprint
 from factory_core.storage import SQLiteStateStore
 
 
@@ -204,4 +204,5 @@ def test_native_rebase_removes_only_a_corrected_flag_reconstructed_by_an_old_wor
     state=store.transition(expected_revision=state.revision,event_type='REAL_MATH_EDIT',changes={},
                            dirty_changes=[change(record,'model.md')])
     store.rebase_dirty_classifier(expected_revision=state.revision)
-    assert any(item['flag']=='MATH_DIRTY' and item['cause_artifact']=='model.md' for item in store.dirty_flags())
+    assert any(item['flag']=='MODEL_DIRTY' and item['owner_stage']==3
+               and item['cause_artifact']=='model.md' for item in store.dirty_flags())

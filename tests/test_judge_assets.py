@@ -20,7 +20,7 @@ def prepare(tmp_path, monkeypatch):
     context, files = packet._render_context(tmp_path, 'execution', [tmp_path/p for p in paths], req)
     assert len(context.encode()) < 1000
     assert packet._completeness(files, req)['eligible']
-    manifest = {'role': 'execution', 'files': files, 'context': {'sha256': hashlib.sha256(context.encode()).hexdigest()}}
+    manifest = {'role': 'execution', 'files': files, 'context': {'sha256': hashlib.sha256(context.encode()).hexdigest(), 'size': len(context.encode())}}
     monkeypatch.setattr(packet, 'packet_payloads', lambda *a, **k: {'execution': {'context': context, 'manifest': manifest}})
     packet.build_packets(tmp_path)
     return tmp_path/'judge_packets/execution', manifest, context
@@ -71,3 +71,38 @@ def test_asset_sources_reject_escape_and_peer_verdicts(tmp_path, path):
     (tmp_path/'judge_evidence.json').write_text(json.dumps({'schema_version':'judge-evidence-v1','roles':{'execution':{
         'required_assets':[{'path':path,'sha256':'0'*64}]}}}))
     with pytest.raises(ValueError): packet._asset_supplement(tmp_path,'execution')
+
+
+def test_role_assets_bind_to_native_batch_and_reject_tampering(tmp_path, monkeypatch):
+    from factory_core import judge_batch
+    root, manifest, _ = prepare(tmp_path, monkeypatch)
+    for role in ("paper", "math"):
+        folder = tmp_path / "judge_packets" / role
+        folder.mkdir()
+        (folder / "context.txt").write_text("")
+        (folder / "manifest.json").write_text(json.dumps({"role": role, "files": []}))
+    (tmp_path / "judge_packets/objective_evidence.json").write_text("{}")
+    monkeypatch.setattr("scripts.submission_fingerprint.evaluator_contract_payload", lambda *a, **k: {})
+    descriptor = judge_batch.descriptor(tmp_path, tmp_path, 16, "execution", "review")
+    for item in manifest["files"]:
+        name = "judge_packets/execution/" + item["asset_path"]
+        assert descriptor["inputs"][name] == {"bytes": item["asset_size"], "sha256": item["asset_sha256"]}
+    (root / manifest["files"][0]["asset_path"]).write_bytes(b"changed")
+    with pytest.raises(judge_batch.JudgeBatchError, match="asset changed"):
+        judge_batch.descriptor(tmp_path, tmp_path, 16, "execution", "review")
+
+
+def test_in_memory_role_asset_grounding_requires_exact_bytes(tmp_path, monkeypatch):
+    from scripts.evidence_grounding import validate_grounding_bytes
+    root, manifest, context = prepare(tmp_path, monkeypatch)
+    item = manifest["files"][0]
+    output = ("VERDICT: PASS\n" + json.dumps({
+        "schema_version": "judge-hard-role-v2", "role": "execution", "verdict": "PASS",
+        "evidence": [{"ref_id": "e1", "chunk_id": item["chunk_id"], "quote": "complete original numerical array"}],
+    })).encode()
+    assets = {entry["asset_path"]: (root / entry["asset_path"]).read_bytes() for entry in manifest["files"]}
+    report = validate_grounding_bytes(output, json.dumps(manifest).encode(), context.encode(), role="execution", assets=assets)
+    assert report["valid"], report
+    assets[item["asset_path"]] = b"changed"
+    report = validate_grounding_bytes(output, json.dumps(manifest).encode(), context.encode(), role="execution", assets=assets)
+    assert not report["valid"]

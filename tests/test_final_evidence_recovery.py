@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-from factory_core.dirty import capture_artifact_manifest, manifest_fingerprint, classifier_contract_sha256
+from factory_core.current_dirty import capture_artifact_manifest, manifest_fingerprint, classifier_contract_sha256
 from factory_core.dirty_rebase import rebase_dirty_classifier_state
 from factory_core.domain import InvalidTransition, SCHEMA_VERSION, WorkflowStatus
 from factory_core.final_evidence_recovery import recover_final_evidence_config
