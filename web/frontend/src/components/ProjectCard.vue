@@ -18,7 +18,7 @@
     </div>
 
     <div class="c-rail">
-      <StepRail :current-step="project.current_step" :awaiting="project.consultation_pending || project.selection_pending" compact />
+      <StepRail :project="project" :current-step="project.current_step" :awaiting="project.consultation_pending || project.selection_pending" compact />
       <div class="c-railmeta mono">
         <span class="c-step">{{ stepText }}</span>
         <span class="c-pct" :class="{ done: project.progress_percent >= 100 }">{{ Math.round(project.progress_percent) }}%</span>
@@ -44,7 +44,7 @@ import Icon from './Icon.vue'
 import StepRail from './StepRail.vue'
 import { relativeTime } from '../lib/api.js'
 import { badgeText } from '../lib/diagnostics.js'
-import { stepByIndex } from '../lib/steps.js'
+import { projectStepIndex, projectStepName } from '../lib/steps.js'
 import { statusLabel as mapStatusLabel } from '../lib/status.js'
 
 export default {
@@ -60,10 +60,7 @@ export default {
     },
     canResume() { return ['paused', 'ready', 'awaiting_consultation', 'awaiting_selection'].includes(this.project.status) },
     stepText() {
-      const c = this.project.current_step
-      if (c >= 16) return '16 · 已完成'
-      const s = stepByIndex(Math.min(16, Math.max(0, c + 1)))
-      return s ? `${Math.max(0, c + 1)} · ${s.name}` : `Step ${c + 1}`
+      return `${projectStepIndex(this.project)} · ${projectStepName(this.project)}`
     },
   },
   methods: { rel: relativeTime },

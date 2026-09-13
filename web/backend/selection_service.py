@@ -347,18 +347,24 @@ def write_selection_decision(
             raise
         except (OSError, RuntimeError, ValueError) as exc:
             raise SelectionError(f"Could not inspect structured decision: {exc}") from exc
+    # Native content-freeze subjects may include human_review.md as a reviewed
+    # input. Mirroring approval into that input would invalidate the subject
+    # before the authoritative decision is persisted (and after it as well).
+    mirror_review = not (gate == "content_freeze" and decision_store is not None)
+    decision["mirrored_to_human_review"] = mirror_review
     _write_json_atomic(project_path / "selection" / f"{gate}_decision.json", decision)
     if gate == "step3":
         mirror_step3_decision_to_human_review(project_path, selected, aux, decision)
-    else:
+    elif mirror_review:
         mirror_release_gate_decision(project_path, decision)
     decision["artifact_refs"] = [
         artifact_ref(
             project_path,
             project_path / "selection" / f"{gate}_decision.json",
         ),
-        artifact_ref(project_path, project_path / "human_review.md"),
     ]
+    if mirror_review:
+        decision["artifact_refs"].append(artifact_ref(project_path, project_path / "human_review.md"))
     if decision_store is not None:
         try:
             decision = decision_store.record_decision(gate, decision)
@@ -385,7 +391,7 @@ def write_selection_decision(
                 raise SelectionError(
                     f"Could not materialize Step 3 projections: {exc}"
                 ) from exc
-        else:
+        elif mirror_review:
             mirror_release_gate_decision(project_path, decision)
     return decision
 

@@ -22,6 +22,7 @@ class SolverInputCoverage:
     included_paths: tuple[Path, ...]
     evidence_paths: tuple[Path, ...]
     excluded: tuple[dict[str, Any], ...]
+    versioned_paths: tuple[Path, ...] = ()
 
 
 def _canonical_hash(value: object) -> str:
@@ -151,6 +152,7 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
     included: dict[str, Path] = {}
     evidence: dict[str, Path] = {}
     excluded: dict[str, dict[str, Any]] = {}
+    versioned: dict[str, Path] = {}
     for receipt_path in sorted(root.glob("*.submitted.json")):
         relative_receipt = receipt_path.relative_to(project).as_posix()
         safe_receipt = _regular_project_file(
@@ -173,10 +175,19 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
             path = _regular_project_file(
                 project, relative, label=f"solver input {index} from {relative_receipt}"
             )
-            if path.stat().st_size != int(record.get("size", -1)):
-                raise ValueError(f"solver input size drift: {relative}")
-            if file_sha256(path) != str(record.get("sha256") or ""):
-                raise ValueError(f"solver input content drift: {relative}")
+            size_drift = path.stat().st_size != int(record.get("size", -1))
+            current_sha256 = file_sha256(path)
+            if size_drift or current_sha256 != str(record.get("sha256") or ""):
+                from .solver_input_versions import reviewed_solver_input_version
+
+                version_paths = reviewed_solver_input_version(project, record, current_sha256)
+                if version_paths is None:
+                    kind = "size" if size_drift else "content"
+                    raise ValueError(f"solver input {kind} drift: {relative}")
+                for version_path in version_paths:
+                    key = version_path.relative_to(project).as_posix()
+                    evidence[key] = version_path
+                    versioned[key] = version_path
             prior = included.get(relative)
             if prior is not None and prior != path:
                 raise ValueError(f"solver input identity conflict: {relative}")
@@ -194,6 +205,7 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
         tuple(included[key] for key in sorted(included)),
         tuple(evidence[key] for key in sorted(evidence)),
         tuple(excluded[key] for key in sorted(excluded)),
+        tuple(versioned[key] for key in sorted(versioned)),
     )
 
 

@@ -17,7 +17,7 @@ from pathlib import Path
 if __package__ in {None, ""}:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from factory_core.paper_sources import primary_paper_source
+from factory_core.paper_sources import primary_paper_source, count_abstract_placeholders
 
 from verify_symbols import collect_symbol_metrics
 from verify_numbers import collect_number_metrics
@@ -56,7 +56,7 @@ def collect_citation_metrics(tex_path, bib_path):
         "dangling_cites": len(dangling),
         "dangling_cite_keys": dangling,
         "uncited_entries": len(uncited),
-        "abstract_placeholder_residue": tex.count("ABSTRACT_PLACEHOLDER"),
+        "abstract_placeholder_residue": count_abstract_placeholders(tex),
     }
 
 

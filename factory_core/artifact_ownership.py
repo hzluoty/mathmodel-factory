@@ -36,6 +36,9 @@ ARTIFACT_OWNERSHIP_REGISTRY: tuple[ArtifactOwnership, ...] = (
     ArtifactOwnership("m*_demo_result.*", 2, "model_candidate", "MODEL_DIRTY"),
     ArtifactOwnership("method_decision.md", 2, "method_selection_projection", "MODEL_DIRTY"),
     ArtifactOwnership("chosen_method.md", 2, "method_selection_projection", "MODEL_DIRTY"),
+    # A reviewed publication identity is re-attested at finalization. Its
+    # scientific scope remains enforced by the unchanged model scope guard.
+    ArtifactOwnership("models/reporting_scope/scope_review_manifest.json", 10, "reporting_scope_review", "FORMAT_DIRTY"),
     # Stage 3: promoted model contract and executable implementation.
     ArtifactOwnership("models/**", 3, "model_contract", "MODEL_DIRTY"),
     ArtifactOwnership("scripts/**", 3, "model_implementation", "MODEL_DIRTY"),
@@ -143,6 +146,8 @@ ARTIFACT_OWNERSHIP_REGISTRY: tuple[ArtifactOwnership, ...] = (
         final_input=False,
         submission_member=False,
     ),
+    # Final judge context configuration changes require a fresh final audit.
+    ArtifactOwnership("judge_evidence.json", 10, "final_audit_evidence", "FORMAT_DIRTY"),
     # Stage 9: final prose, citations, and presentation.
     ArtifactOwnership("abstract_draft.md", 9, "final_prose", "PROSE_DIRTY"),
     ArtifactOwnership("citation_audit.md", 9, "citation", "CITATION_DIRTY"),

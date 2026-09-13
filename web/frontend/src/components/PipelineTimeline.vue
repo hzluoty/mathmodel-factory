@@ -202,7 +202,7 @@
 
 <script>
 import Icon from './Icon.vue'
-import { STEPS, EDITORIAL_GATE_STEP, stepStatus, VERDICT_LABEL, stepModelMeta, stepConfigKey } from '../lib/steps.js'
+import { STEPS, EDITORIAL_GATE_STEP, projectStepIndex, projectStepStatus, hasNativeStepCursor, VERDICT_LABEL, stepModelMeta, stepConfigKey } from '../lib/steps.js'
 import { renderMarkdown } from '../lib/markdown.js'
 import { CONTEST_PHASES, phaseForStep } from '../lib/workspaceUi.js'
 
@@ -211,6 +211,7 @@ export default {
   components: { Icon },
   props: {
     currentStep: { type: Number, default: -1 },
+    project: { type: Object, default: null },
     stepsData: { type: Object, default: null },
     awaiting: { type: Boolean, default: false },
     registry: { type: Array, default: () => [] },
@@ -228,7 +229,7 @@ export default {
     }
   },
   computed: {
-    displayStep() { return this.currentStep },
+    displayStep() { return hasNativeStepCursor(this.project) ? projectStepIndex(this.project) : this.currentStep },
     verdict() { return this.stepsData?.verdict || null },
     verdictLabel() { return VERDICT_LABEL[this.verdict] || this.verdict },
     verdictClass() { return this.verdict === 'PASS' ? 'tag-ok' : 'tag-amber' },
@@ -287,9 +288,13 @@ export default {
     stepId(s) { return s.key || s.index },
     isSegmentOn(s) {
       if (s.key === '8_5') return this.currentStep >= 8
-      return s.index <= this.currentStep && s.index > 0
+      return s.index <= (this.project?.last_completed_step ?? this.currentStep) && s.index > 0
     },
     defaultIndex() {
+      if (hasNativeStepCursor(this.project)) {
+        const active = projectStepIndex(this.project)
+        return active === 8.5 ? '8_5' : active
+      }
       const c = this.currentStep
       const gate = this.stepsData?.editorial_gate
       if (c === 8 && gate && !gate.ready) return '8_5'
@@ -313,6 +318,10 @@ export default {
       this.$emit('assign', this.sel, cur)
     },
     state(s) {
+      if (s.key === '8_5' && hasNativeStepCursor(this.project)) {
+        const st = projectStepStatus(8.5, this.project, this.currentStep)
+        return st === 'active' ? (this.awaiting ? 'attention' : 'live') : st
+      }
       if (s.key === '8_5') {
         const gate = this.stepsData?.editorial_gate
         if (!gate) return 'pending'
@@ -320,7 +329,7 @@ export default {
         if (this.currentStep >= 8) return this.awaiting ? 'attention' : 'live'
         return 'pending'
       }
-      const st = stepStatus(s.index, this.currentStep)
+      const st = projectStepStatus(s.index, this.project, this.currentStep)
       if (st === 'active') return this.awaiting ? 'attention' : 'live'
       return st
     },

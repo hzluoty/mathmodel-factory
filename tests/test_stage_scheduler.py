@@ -1052,3 +1052,49 @@ def test_engine_dispatches_prompt_only_after_durable_input_binding(tmp_path):
     assert observed["receipt_id"] == store.prompt_attempt_inputs()[0]["receipt_id"]
     assert state.status is WorkflowStatus.READY
     assert state.last_completed_step == 4
+
+
+@pytest.mark.parametrize("authorized", [False, True])
+def test_step13_authorized_continuation_keeps_open_issues(tmp_path, authorized):
+    ledger = tmp_path / "audit_issue_ledger.md"
+    original = "| Issue ID | Severity | Status | Notes |\n|---|---|---|---|\n| M-1 | MAJOR | OPEN | Missing packet evidence |\n"
+    ledger.write_text(original)
+    verdict = tmp_path / "judge_evaluation.md"
+    verdict.write_text("VERDICT: INDETERMINATE_REVIEW\n")
+    metadata = ({"gate2_continuation_override": True, "judge_completed": False,
+                 "delivery_allowed": False, "judge_verdict": "INDETERMINATE_REVIEW"}
+                if authorized else {})
+    lifecycle = RecoverCompleteLifecycle(evidence=("judge_evaluation.md",), **metadata)
+    registry, _ = stage_registry(overrides={13: lifecycle}, skip=lifecycle)
+    store = SQLiteStateStore(tmp_path)
+    store.initialize(project_id="demo", project_type="modeling", last_completed_step=12,
+                     scheduler_generation=STAGE_SCHEDULER_GENERATION)
+    interrupt_stage_task(store, tmp_path, stage=8, subtask="conditional_math_preflight", source_step=13)
+    state = FactoryEngine(tmp_path, store=store, registry=registry).recover()
+    assert ledger.read_text() == original
+    assert verdict.read_text() == "VERDICT: INDETERMINATE_REVIEW\n"
+    assert lifecycle.calls == []
+    if authorized:
+        assert state.last_completed_step == 13
+        assert state.active_step == 14
+        checkpoint = next(c for c in store.stage_checkpoints() if c["source_step_id"] == 13)
+        assert checkpoint["receipt"]["validation"]["delivery_allowed"] is False
+        assert checkpoint["receipt"]["validation"]["judge_completed"] is False
+    else:
+        assert state.last_completed_step == 10
+        assert state.active_step is None
+
+
+@pytest.mark.parametrize("authorized", [False, True])
+def test_native_step13_validator_distinguishes_authorized_continuation(tmp_path, monkeypatch, authorized):
+    from factory_core.steps.validators import NativeArtifactValidator
+    verdict = tmp_path / "judge_evaluation.md"
+    verdict.write_text("VERDICT: INDETERMINATE_REVIEW\n")
+    monkeypatch.setattr("factory_core.steps.validators.gate2_continuation_override", lambda *_: authorized)
+    ok, _, _, metadata = NativeArtifactValidator(tmp_path, 13)._step_13(tmp_path)
+    assert ok is authorized
+    if authorized:
+        assert metadata["gate2_continuation_override"] is True
+        assert metadata["judge_verdict"] == "INDETERMINATE_REVIEW"
+        assert metadata["judge_completed"] is False
+        assert metadata["delivery_allowed"] is False

@@ -70,6 +70,37 @@ def rebase_dirty_classifier_state(
             "SELECT * FROM dirty_flags ORDER BY flag, owner_stage"
         ).fetchall()
     }
+    # Exact cause corrections are append-only and never act as a PASS receipt.
+    corrected_causes: set[str] = set()
+    for row in connection.execute("SELECT receipt_json FROM dirty_classifier_rebases"):
+        receipt = json.loads(row[0])
+        if receipt.get("schema_version") in {
+            "factory-final-evidence-reclassification-v1",
+            "factory-final-judge-projection-reclassification-v1",
+        }:
+            corrected_causes.update(receipt["corrected_cause_ids"])
+    # Older workers can reconstruct a mutable flag after an exact cause was
+    # corrected. Remove only the row that still points to that same immutable
+    # cause; any different unresolved cause is reconstructed below as usual.
+    removed_by_correction: list[dict[str, Any]] = []
+    if corrected_causes and _table_exists(connection, "dirty_causes"):
+        for key, active in list(active_rows.items()):
+            matches = connection.execute(
+                "SELECT cause_id FROM dirty_causes WHERE flag=? AND owner_stage=? "
+                "AND cause_revision=? AND cause_artifact=? AND baseline_fingerprint=? "
+                "AND current_fingerprint=?",
+                (active["flag"], active["owner_stage"], active["cause_revision"],
+                 active["cause_artifact"], active["baseline_fingerprint"], active["current_fingerprint"]),
+            ).fetchall()
+            if matches and all(row["cause_id"] in corrected_causes for row in matches):
+                connection.execute("DELETE FROM dirty_flags WHERE flag=? AND owner_stage=?", key)
+                del active_rows[key]
+                removed_by_correction.append({
+                    "flag": key[0], "owner_stage": key[1],
+                    "cause_revision": active["cause_revision"], "cause_artifact": active["cause_artifact"],
+                    "old_classifier_sha256": active["classifier_contract_sha256"],
+                    "new_classifier_sha256": current_classifier, "removed_by_exact_correction": True,
+                })
     reconstructed: dict[tuple[str, int], dict[str, Any]] = {}
     if _table_exists(connection, "dirty_causes"):
         clear_revisions: dict[tuple[str, int], list[int]] = defaultdict(list)
@@ -85,6 +116,8 @@ def rebase_dirty_classifier_state(
             "SELECT * FROM dirty_causes ORDER BY cause_revision, cause_id"
         ).fetchall():
             record = dict(row)
+            if record["cause_id"] in corrected_causes:
+                continue
             key = (str(record["flag"]), int(record["owner_stage"]))
             cause_revision = int(record["cause_revision"])
             if any(revision >= cause_revision for revision in clear_revisions.get(key, ())):
@@ -98,8 +131,8 @@ def rebase_dirty_classifier_state(
         current = obligations.get(key)
         if current is None or int(current["cause_revision"]) < int(record["cause_revision"]):
             obligations[key] = record
-    changed: list[dict[str, Any]] = []
-    old_hashes: set[str] = set()
+    changed: list[dict[str, Any]] = list(removed_by_correction)
+    old_hashes: set[str] = {str(item["old_classifier_sha256"]) for item in removed_by_correction}
     for (flag, owner_stage), record in sorted(obligations.items()):
         old_hash = str(record.get("classifier_contract_sha256") or "UNKNOWN")
         row = active_rows.get((flag, owner_stage))

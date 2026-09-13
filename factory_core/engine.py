@@ -83,7 +83,10 @@ class FactoryEngine:
     def get_state(self) -> WorkflowState:
         return self.store.load()
 
-    def run(self, *, max_steps: int | None = None) -> WorkflowState:
+    def run(
+        self, *, max_steps: int | None = None,
+        allowed_source_steps: frozenset[int] | None = None,
+    ) -> WorkflowState:
         state = self.store.load()
         if state.scheduler_generation not in {
             STEP_SCHEDULER_GENERATION,
@@ -207,6 +210,15 @@ class FactoryEngine:
                         "heartbeat_at": None,
                     },
                     payload={"reason": "max_steps"},
+                )
+            if allowed_source_steps is not None and definition.id not in allowed_source_steps:
+                return self._owned_transition(
+                    state, lease, event_type="RUN_BOUNDARY_REACHED",
+                    changes={"status": WorkflowStatus.PAUSED, "runner_pid": None,
+                             "runner_lease_id": None, "heartbeat_at": None},
+                    payload={"reason": "selected source step outside requested run scope",
+                             "selected_step": definition.id,
+                             "allowed_source_steps": sorted(allowed_source_steps)},
                 )
             attempt = state.attempt + 1 if state.active_step == definition.id else 1
             if stage_mode and state.attempt >= definition.max_attempts:
@@ -804,6 +816,12 @@ class FactoryEngine:
             != current_classifier
             for item in stage9_checkpoints
         )
+        if classifier_stale:
+            from .final_evidence_recovery import classifier_equivalent_for_restored_checkpoints
+
+            classifier_stale = not classifier_equivalent_for_restored_checkpoints(
+                self.store, stage9_checkpoints, current_classifier
+            )
         result_metadata = (
             conditional.get("receipt", {}).get("result", {})
             if conditional is not None
@@ -1015,6 +1033,9 @@ class FactoryEngine:
                 event_step=task.source_step_id,
             )
 
+        from .final_judge_projection import classify_delivery_report
+
+        dirty_changes = classify_delivery_report(self.project_dir, task, dirty_changes)
         new_flags = {str(item["flag"]) for item in dirty_changes}
         protected_deleted = [
             item["cause_artifact"]
@@ -1120,7 +1141,13 @@ class FactoryEngine:
         if task.stage_id == 8 and task.checkpoint_step_id == 13:
             from .audit.ledger import has_unresolved_critical
 
-            if has_unresolved_critical(self.project_dir / "audit_issue_ledger.md"):
+            # Step 13 continuation is explicitly authorized by the control-plane
+            # provider in its validator. Keep open issues and the judge verdict;
+            # this authorization never releases the final delivery gate.
+            if (
+                has_unresolved_critical(self.project_dir / "audit_issue_ledger.md")
+                and validation.metadata.get("gate2_continuation_override") is not True
+            ):
                 if not self._reopen_allowed(self.registry.get(13)):
                     return self._stage_transition(
                         state,
@@ -1208,6 +1235,12 @@ class FactoryEngine:
                 "manifest": after,
             }
         validation_metadata = dict(validation.metadata)
+        projection_receipts = [
+            item["generated_projection_receipt"] for item in dirty_changes
+            if "generated_projection_receipt" in item
+        ]
+        if projection_receipts:
+            validation_metadata["generated_projection_receipts"] = projection_receipts
         if task.subtask == "reviewer_entry_gate":
             from scripts.step8_5_gate import collect_step8_5_state
 

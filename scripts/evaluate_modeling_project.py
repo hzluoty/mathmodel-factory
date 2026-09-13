@@ -22,7 +22,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts import workflow_state
-from factory_core.paper_sources import primary_paper_source, discover_paper_pdfs
+from factory_core.paper_sources import primary_paper_source, discover_paper_pdfs, count_abstract_placeholders
 
 
 METHOD_PATH_RE = re.compile(r"method_library/[A-Za-z0-9_./-]+\.md")
@@ -451,7 +451,7 @@ def evaluate(project: Path, root: Path) -> Evaluation:
     ev.add(
         "paper_tex",
         paper_tex is not None
-        and "ABSTRACT_PLACEHOLDER" not in read_text(paper_tex),
+        and count_abstract_placeholders(read_text(paper_tex)) == 0,
         (
             f"{paper_tex.relative_to(project)} present without placeholder"
             if paper_tex is not None

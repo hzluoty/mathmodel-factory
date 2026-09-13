@@ -134,6 +134,7 @@
 
       <PipelineTimeline
         v-else-if="activeTab === 'pipeline'"
+        :project="project"
         class="rise"
         :current-step="project.current_step"
         :steps-data="stepsData"
@@ -260,7 +261,7 @@ import ContestTimingPanel from './ContestTimingPanel.vue'
 import ModelingDirectionPanel from './ModelingDirectionPanel.vue'
 import SelectionPanel from './SelectionPanel.vue'
 import { relativeTime } from '../lib/api.js'
-import { stepByIndex, stepConfigKey } from '../lib/steps.js'
+import { hasNativeStepCursor, projectStepIndex, projectStepName, stepConfigKey } from '../lib/steps.js'
 import { buildWorkspaceActions, workspaceTabs } from '../lib/workspaceUi.js'
 import { useToasts } from '../composables/useToasts.js'
 import { useModels } from '../composables/useModels.js'
@@ -351,12 +352,10 @@ export default {
     }))
     const workspaceActions = computed(() => buildWorkspaceActions(contestDashboard.value, stepsData.value))
     const stepLabel = computed(() => {
-      const current = props.project.current_step
+      const project = props.project
       const gate = stepsData.value?.editorial_gate
-      if (current >= 16) return 'STEP 16 / 16 · 已完成'
-      if (current === 8 && gate && !gate.ready) return 'STEP 8.5 / 16 · 阅卷入口设计'
-      const active = stepByIndex(Math.min(16, current + 1))
-      return `STEP ${Math.max(0, current + 1)} / 16 · ${active ? active.name : ''}`
+      if (!hasNativeStepCursor(project) && project.current_step === 8 && gate && !gate.ready) return 'STEP 8.5 / 16 · 阅卷入口设计'
+      return `STEP ${projectStepIndex(project)} / 16 · ${projectStepName(project)}`
     })
     const phaseNames = {
       problem_understanding: '题意与数据',
@@ -544,9 +543,11 @@ export default {
       }
     }
 
+    // Automatic cloud prompts are disabled; full feature removal is deferred.
+    const cloudAcceleratorPromptsEnabled = false
     let cloudDialogTimer = null
     function checkCloudAccelerator(currentStep) {
-      if (lastStep.value !== null && currentStep !== lastStep.value) {
+      if (cloudAcceleratorPromptsEnabled && lastStep.value !== null && currentStep !== lastStep.value) {
         const computeSteps = [5, 6]
         if (computeSteps.includes(currentStep)) {
           cloudEstimate.value = currentStep === 5 ? { local: 6, cloud: 1.5 } : { local: 8, cloud: 2 }

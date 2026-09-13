@@ -102,7 +102,9 @@ def _references(payload: dict[str, Any], role: str) -> Iterable[tuple[str, dict[
             raise GroundingError(f"issues[{index}] must be an object")
 
 
-def _context_sections(text: str, files: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _context_sections(
+    text: str, files: list[dict[str, Any]], manifest_dir: Path | None = None
+) -> dict[str, dict[str, Any]]:
     matches = list(HEADER_RE.finditer(text))
     expected_by_path = {
         item.get("path"): item
@@ -120,6 +122,8 @@ def _context_sections(text: str, files: list[dict[str, Any]]) -> dict[str, dict[
         item = expected_by_path.get(path)
         if not isinstance(item, dict):
             continue
+        if item.get("asset_quote_mode") == "text":
+            continue
         expected_hash = item.get("included_sha256")
         candidates = [raw]
         if raw.endswith("\n"):
@@ -136,6 +140,37 @@ def _context_sections(text: str, files: list[dict[str, Any]]) -> dict[str, dict[
             "text": content,
             "context_line_start": text.count("\n", 0, match.end()) + 1,
         }
+    for path, item in expected_by_path.items():
+        if item.get("content_location") != "asset":
+            continue
+        relative = item.get("asset_path")
+        if not isinstance(relative, str) or manifest_dir is None:
+            raise GroundingError("asset is missing its role-local location")
+        parts = Path(relative).parts
+        if len(parts) != 2 or parts[0] != "assets" or "\\" in relative or Path(relative).is_absolute():
+            raise GroundingError("asset path must be directly inside this role's assets directory")
+        asset_dir = manifest_dir / "assets"
+        asset = manifest_dir / relative
+        if asset_dir.is_symlink() or asset.is_symlink() or not asset.is_file():
+            raise GroundingError("role asset is missing or traverses a symlink")
+        try:
+            asset.resolve(strict=True).relative_to(manifest_dir.resolve())
+        except ValueError as exc:
+            raise GroundingError("asset escapes its role packet") from exc
+        data = asset.read_bytes()
+        if len(data) != item.get("asset_size") or sha256_bytes(data) != item.get("asset_sha256"):
+            raise GroundingError(f"role asset hash mismatch: {path}")
+        mode = item.get("asset_quote_mode")
+        if mode == "text":
+            try:
+                content = data.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise GroundingError("text asset is not UTF-8") from exc
+            if sha256_bytes(content.encode("utf-8")) != item.get("included_sha256"):
+                raise GroundingError(f"text asset chunk hash mismatch: {path}")
+            sections[path] = {"text": content, "context_line_start": None, "asset_path": relative}
+        elif mode != "descriptor":
+            raise GroundingError("unsupported asset quote mode")
     missing = sorted(set(expected_by_path) - set(sections))
     if missing:
         raise GroundingError("context omits manifest chunks: " + ", ".join(missing))
@@ -180,7 +215,7 @@ def validate_grounding(
             and item.get("status") in {"included", "truncated"}
             and SHA256_RE.fullmatch(str(item.get("chunk_id") or ""))
         }
-        sections = _context_sections(context_text, files)
+        sections = _context_sections(context_text, files, manifest_path.parent)
         seen_ids: set[str] = set()
         for fallback_id, reference in _references(payload, requested_role):
             ref_id = reference.get("ref_id")
@@ -229,7 +264,8 @@ def validate_grounding(
             relative_line = section["text"].count("\n", 0, offset)
             line_start = int(chunk.get("source_line_start") or 1) + relative_line
             line_end = line_start + quote.count("\n")
-            context_line_start = int(section["context_line_start"]) + relative_line
+            context_line_start = (int(section["context_line_start"]) + relative_line
+                                  if section["context_line_start"] is not None else None)
             refs.append(
                 {
                     "ref_id": ref_id,
@@ -239,7 +275,9 @@ def validate_grounding(
                     "line_start": line_start,
                     "line_end": line_end,
                     "context_line_start": context_line_start,
-                    "context_line_end": context_line_start + quote.count("\n"),
+                    "context_line_end": (context_line_start + quote.count("\n")
+                                         if context_line_start is not None else None),
+                    **({"asset_path": section["asset_path"]} if "asset_path" in section else {}),
                 }
             )
     except (GroundingError, OSError) as exc:
