@@ -129,3 +129,21 @@ def test_one_reviewed_version_does_not_authorize_other_receipts(tmp_path, job_id
     source.write_bytes(current)
     with pytest.raises(ValueError, match='solver input (size|content) drift'):
         solver_declared_input_coverage(tmp_path)
+
+
+@pytest.mark.parametrize('requested_at,accepted', [(0, False), (2, True)])
+def test_direct_current_submission_only_supersedes_older_pending_inputs(tmp_path, requested_at, accepted):
+    source, _, _, _, _ = fixture(tmp_path)
+    receipt = build_submission_receipt(
+        project_dir=tmp_path, job_id='current-bytes', backend='local', runtime='python',
+        script=tmp_path / 'models/solve.py', workdir=tmp_path / 'models', argv=(),
+        max_time_seconds=30, requested_at=requested_at, input_paths=(source,),
+        output_paths=(tmp_path / 'result.json',), seeds=(1,),
+    )
+    path, _ = receipt_paths(tmp_path / '.factory/solver_receipts', 'current-bytes')
+    write_receipt(path, receipt)
+    if accepted:
+        assert source in solver_declared_input_coverage(tmp_path).included_paths
+    else:
+        with pytest.raises(ValueError, match='solver input (size|content) drift'):
+            solver_declared_input_coverage(tmp_path)

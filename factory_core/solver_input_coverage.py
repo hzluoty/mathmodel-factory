@@ -480,6 +480,8 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
     stale_drifts: dict[str, dict[str, Any]] = {}
     missing_inputs: dict[str, dict[str, Any]] = {}
     current_identities: dict[str, dict[str, Any]] = {}
+    current_submission_times: dict[str, int] = {}
+    stale_submission_times: dict[str, list[tuple[int, bool]]] = {}
     authorization = technical_solver_drift_authorization(project)
     authorized_drifts: list[dict[str, Any]] = []
     (
@@ -566,6 +568,9 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
                 drift = stale_drifts.setdefault(
                     relative, {"path": path, "kinds": set(), "receipts": {}}
                 )
+                stale_submission_times.setdefault(relative, []).append(
+                    (int(receipt["requested_at"]), completed is not None)
+                )
                 kind = "size" if current["size"] != expected_size else "content"
                 drift["kinds"].add(kind)
                 receipt_identity = {
@@ -576,6 +581,9 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
                 drift["receipts"][_canonical_hash(receipt_identity)] = receipt_identity
             else:
                 matched_records.append((record, path))
+                current_submission_times[relative] = max(
+                    current_submission_times.get(relative, -1), int(receipt["requested_at"])
+                )
 
         if matched_records:
             evidence[relative_receipt] = safe_receipt
@@ -623,6 +631,16 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
     for relative in sorted(stale_drifts):
         # A match for one receipt does not authorize a different historical
         # identity at the same path. Superseded receipts were filtered above.
+        # Preserve the legacy submission-only rerun contract: a newer direct
+        # attestation of current bytes replaces older pending submissions.
+        # A reviewed historical version is not a current attestation, and a
+        # completed job requires the output-bound supersession proof above.
+        latest_current = current_submission_times.get(relative)
+        if latest_current is not None and all(
+            not was_completed and requested_at < latest_current
+            for requested_at, was_completed in stale_submission_times[relative]
+        ):
+            continue
         details = stale_drifts[relative]
         current = current_identities[relative]
         kind = "content" if "content" in details["kinds"] else "size"
