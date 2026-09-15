@@ -1,6 +1,7 @@
 # Changelog
 
-- 2026-09-15: Removed superseded June organization/optimization reports, historical Web
+- 2026-09-15: Removed superseded June organization/optimization reports and their old
+  optimization changelog, historical Web
   deployment/upload/consultation reports, and obsolete interface, screenshot,
   and quick-start copies. Current Web usage and deployment guides remain the
   documentation entry points; Git retains the removed documents in history.
