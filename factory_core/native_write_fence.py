@@ -5,6 +5,8 @@ import sqlite3
 
 from .domain import InvalidTransition
 
+NATIVE_WRITE_FENCE_ERROR = "AUTHORITY_LEGACY_WRITE_DISABLED"
+
 
 @contextmanager
 def native_write_error_boundary():
@@ -12,7 +14,7 @@ def native_write_error_boundary():
     try:
         yield
     except sqlite3.IntegrityError as exc:
-        if str(exc) == "AUTHORITY_LEGACY_WRITE_DISABLED":
+        if str(exc) == NATIVE_WRITE_FENCE_ERROR:
             raise InvalidTransition(
                 "Authority owns this database; legacy state writes are disabled"
             ) from exc
@@ -37,7 +39,7 @@ def _trigger(table, operation):
             WHEN COALESCE((SELECT switch_mode FROM authority_production_writer_state
                            WHERE singleton=1), 'UNAVAILABLE') != 'V1_ONLY'
             BEGIN
-                SELECT RAISE(ABORT, 'AUTHORITY_LEGACY_WRITE_DISABLED');
+                SELECT RAISE(ABORT, '{NATIVE_WRITE_FENCE_ERROR}');
             END
             """
     return name, table, sql

@@ -1462,6 +1462,10 @@ class AuthorityProductionWriter:
         validate_receipt_envelope(receipt)
         validate_outbox_message(outbox)
         if command.command_type.value == "CONFIGURE_SOLVER_POLICY":
+            if self._writer_id != "factory-service":
+                raise AuthorityEnvelopePersistenceError(
+                    "solver policy requires the factory-service writer"
+                )
             from .authority_solver_policy import validate_policy_bundle
 
             if phase3_mutation is not None:

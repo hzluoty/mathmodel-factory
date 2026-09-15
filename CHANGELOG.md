@@ -1,6 +1,6 @@
 # Changelog
 
-## Authority solver-policy application route
+## 2026-09-15: Authority solver-policy application route
 
 - Route solver configuration and queries through fenced Authority command
   bundles for explicitly enabled CANARY/PRIMARY projects; retain native behavior

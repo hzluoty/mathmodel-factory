@@ -102,6 +102,10 @@ def test_published_shadow_migration_checksums_are_unchanged_and_suffix_is_append
         "355c9419f56aa6266b3676f741e0e37a63856e820fa054e9bc217027f23646db"
     )
     assert len(PRODUCTION_MIGRATION_CHECKSUMS) == len(set(PRODUCTION_MIGRATION_CHECKSUMS)) == 12
+    assert PRODUCTION_MIGRATION_CHECKSUMS[10:] == (
+        "9faced132a715b74e54268edaa07f334b1f7be8bb37645d2b68ae9edb37ded9e",
+        "3f942805c29604ac253a804db6d4389bcb1258e8eeb0869d8c97bd2765fa7820",
+    )
 
 
 def test_a2_0001_through_a2_0016_statement_bytes_are_frozen():

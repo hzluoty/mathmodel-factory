@@ -2717,16 +2717,7 @@ _REAL_SCHEMA_V9_COLUMNS = {
     ),
 }
 
-_REAL_SCHEMA_V9_REQUIRED_TABLES = frozenset(
-    {
-        "contest_policy", "dirty_causes", "dirty_classifier_rebases",
-        "dirty_flag_clear_receipts", "dirty_flags", "events", "project_config",
-        "project_state", "projection_failures", "projector_snapshots",
-        "prompt_attempt_inputs", "schema_info", "solver_jobs",
-        "stage_checkpoint_history", "stage_checkpoints", "stage_cursor_inputs",
-        "workflow_decision_instances", "workflow_decision_requests", "workflow_decisions",
-    }
-)
+_REAL_SCHEMA_V9_REQUIRED_TABLES = frozenset(NATIVE_FENCE_TABLES)
 
 
 # This additive migration leaves every published A2_0010..A2_0020 byte intact.

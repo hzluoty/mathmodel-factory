@@ -37,6 +37,11 @@ Authority revision. The fenced writer atomically appends its command, event,
 receipt, notification intent and idempotency record, and advances Authority
 once. A changed request with a stale revision fails; an exact request replay
 returns the original result without overwriting a later configuration.
+Authority writes require an explicit expected revision, obtained from the policy
+query. Omitting it is rejected before persistence so a retry cannot silently
+become a new command. V1_ONLY keeps its existing optional-revision behavior.
+The public writer also enforces the `factory-service` owner, independently of
+the application route; another enabled durable writer cannot submit this command.
 
 `solver policy` reads the most recent committed configuration through verified
 immutable command evidence. The result retains the existing policy,

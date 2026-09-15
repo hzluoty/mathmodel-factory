@@ -114,7 +114,9 @@ def configure_authority_solver_policy(route, *, mode, threshold_seconds, allowed
 
     policy = normalize_policy(mode, threshold_seconds, allowed_runtimes)
     workflow = route.workflow
-    revision = workflow["current_revision"] if expected_revision is None else expected_revision
+    if expected_revision is None:
+        raise ValueError("Authority solver policy requires an explicit expected_revision")
+    revision = expected_revision
     if type(revision) is not int or revision < 1:
         raise ValueError("expected_revision must be a positive integer")
     pins = compile_contract_pin_set(compile_workflow_contract_bundle_v2())

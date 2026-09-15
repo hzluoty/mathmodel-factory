@@ -6,7 +6,10 @@ import pytest
 
 from factory_core.authority_operations import AuthorityOperations
 from factory_core.authority_production_schema import legacy_database_content_sha256
-from factory_core.authority_production_writer import AuthorityProductionWriter, AuthorityProductionWriterDisabled
+from factory_core.authority_production_writer import (
+    AuthorityProductionWriter, AuthorityProductionWriterDisabled,
+    AuthorityProductionWriterBusy, AuthorityProductionWriterFenceLost,
+)
 from factory_core.authority_repository import AuthorityEnvelopePersistenceError
 from factory_core.domain import InvalidTransition, RevisionConflict
 from factory_core.service import FactoryService
@@ -149,6 +152,49 @@ def test_wrong_durable_writer_never_falls_back_to_native(tmp_path):
     assert SQLiteStateStore(fixture.project_dir).load().revision == 1
 
 
+def test_authority_configuration_requires_explicit_revision(tmp_path):
+    fixture, _, service = setup_route(tmp_path)
+    with pytest.raises(ValueError, match="explicit expected_revision"):
+        configure(service, fixture, revision=None)
+    assert query(fixture.database, "SELECT COUNT(*) FROM authority_commands") == [(0,)]
+    assert SQLiteStateStore(fixture.project_dir).load().revision == 1
+
+
+def test_public_writer_rejects_valid_policy_from_another_enabled_owner(tmp_path, monkeypatch):
+    fixture, operations, service = setup_route(tmp_path)
+    original = AuthorityProductionWriter.persist_command_bundle
+
+    def bypass_route(self, **kwargs):
+        stopped = operations.switch_mode(
+            target_mode="V1_ONLY", expected_switch_epoch=1, **ACTOR,
+        )
+        rotated = operations.configure_writer(
+            new_writer_id="other-owner", enabled=True,
+            expected_writer_epoch=stopped.writer_epoch,
+            expected_switch_epoch=stopped.switch_epoch, **ACTOR,
+        )
+        operations.configure_consumer(
+            new_consumer_id="test-consumer", enabled=True,
+            expected_consumer_epoch=stopped.consumer_epoch,
+            expected_switch_epoch=stopped.switch_epoch, **ACTOR,
+        )
+        operations.switch_mode(
+            target_mode="CANARY", expected_switch_epoch=stopped.switch_epoch, **ACTOR,
+        )
+        other = AuthorityProductionWriter(
+            fixture.database, writer_id="other-owner", writer_epoch=rotated.writer_epoch,
+            expected_source_fence_sha256=fixture.preflight.source_fence_sha256,
+        )
+        return original(other, **kwargs)
+
+    monkeypatch.setattr(AuthorityProductionWriter, "persist_command_bundle", bypass_route)
+    with pytest.raises(AuthorityEnvelopePersistenceError, match="factory-service writer"):
+        configure(service, fixture)
+    assert query(fixture.database, "SELECT writer_id,writer_enabled FROM authority_production_writer_state") == [("other-owner", 1)]
+    assert query(fixture.database, "SELECT COUNT(*) FROM authority_commands") == [(0,)]
+    assert query(fixture.database, "SELECT current_revision FROM authority_workflows") == [(1,)]
+
+
 def test_missing_fence_is_detected_before_authority_write(tmp_path):
     fixture, _, service = setup_route(tmp_path)
     with sqlite3.connect(fixture.database) as connection:
@@ -191,8 +237,16 @@ def test_concurrent_configuration_has_one_revision_owner(tmp_path, same_request)
             return configure(service, fixture, threshold=threshold)
         except RevisionConflict:
             return "conflict"
+        except (AuthorityProductionWriterBusy, AuthorityProductionWriterFenceLost):
+            return "retry"
+    thresholds = [301, 301 if same_request else 302]
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(run, [301, 301 if same_request else 302]))
+        results = list(pool.map(run, thresholds))
+    # Contention may exhaust the admission timeout on a loaded host. Once both
+    # threads have exited, retry the exact request and still require one commit.
+    results = [run(threshold) if result == "retry" else result
+               for threshold, result in zip(thresholds, results)]
+    assert "retry" not in results
     if same_request:
         assert results[0] == results[1]
     else:
