@@ -16,6 +16,7 @@ from factory_core.finalization import (
     verify_final_input_snapshot,
 )
 from factory_core.human_decisions import decision_fingerprints
+from factory_core.solver_input_coverage import SolverInputDriftError
 from scripts.submission_fingerprint import submission_files
 from scripts.judge_packet import packet_payloads
 from scripts.verify_number_chain import collect_number_chain_metrics
@@ -279,6 +280,38 @@ def test_dynamic_latex_dependency_fails_content_freeze(tmp_path):
 
     with pytest.raises(LatexDependencyError, match="dynamic_dependency"):
         decision_fingerprints(project, "content_freeze")
+
+
+def test_content_freeze_fingerprints_missing_solver_input_without_path_crash(tmp_path, monkeypatch):
+    project = tmp_path / "demo"
+    paper = project / "paper/paper.tex"
+    paper.parent.mkdir(parents=True)
+    paper.write_text("\\documentclass{article}\n\\begin{document}ok\\end{document}\n", encoding="utf-8")
+
+    missing_path = "data/final/missing.json"
+
+    def missing_input(_project):
+        raise SolverInputDriftError(
+            current_path=None,
+            relative_path=missing_path,
+            kind="missing",
+            current_size=None,
+            current_sha256=None,
+            receipts=(),
+        )
+
+    monkeypatch.setattr(
+        "factory_core.solver_input_coverage.solver_declared_input_coverage",
+        missing_input,
+    )
+    subject, options = decision_fingerprints(project, "content_freeze")
+    assert len(subject) == 64
+    assert len(options) == 64
+    assert decision_fingerprints(project, "content_freeze") == (subject, options)
+    missing_path = "data/final/other_missing.json"
+    changed_subject, unchanged_options = decision_fingerprints(project, "content_freeze")
+    assert changed_subject != subject
+    assert unchanged_options == options
 
 
 @pytest.mark.latex
