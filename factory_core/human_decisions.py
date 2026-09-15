@@ -293,7 +293,11 @@ def _decision_fingerprints_with_metadata(
                     "identity": drift,
                 }
             )
-            subject_paths.add(exc.current_path)
+            # A missing solver input is a valid drift report, but it has no
+            # filesystem path to fingerprint.  Keep the structured drift
+            # metadata and only add an existing path when one is available.
+            if exc.current_path is not None:
+                subject_paths.add(exc.current_path)
             for receipt in exc.receipts:
                 subject_paths.update(_contained_files(project, str(receipt["path"])))
         else:

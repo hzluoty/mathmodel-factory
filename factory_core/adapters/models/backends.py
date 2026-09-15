@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 from ...domain import ExecutionResult
 from ...deadline import cap_timeout, deadline_scope
@@ -61,7 +62,7 @@ class _ProcessModelBackend:
             request.input_observer(request.prompt, request.prompt_format)
         logs = request.project_dir / "logs"
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        log = logs / f"step_{request.step_id}_{label}_{stamp}_{os.getpid()}.log"
+        log = logs / f"step_{request.step_id}_{label}_{stamp}_{os.getpid()}_{uuid4().hex}.log"
         result = self.supervisor.run(
             ProcessRequest(
                 argv=argv,
@@ -185,7 +186,7 @@ class AgyBackend(_ProcessModelBackend):
         if request.image_files:
             return ExecutionResult.failed("PERMANENT_MULTIMODAL_UNSUPPORTED", returncode=2,
                 reason="Agy adapter has no verified image transport")
-        prompt_file = request.project_dir / "logs" / f"step_{request.step_id}_agy_{os.getpid()}.prompt.txt"
+        prompt_file = request.project_dir / "logs" / f"step_{request.step_id}_agy_{os.getpid()}_{uuid4().hex}.prompt.txt"
         prompt_file.parent.mkdir(parents=True, exist_ok=True)
         prompt_file.write_text(request.prompt, encoding="utf-8")
         python = self.factory_root / ".venv" / "bin" / "python3"
@@ -234,7 +235,7 @@ class ApiAgentBackend(_ProcessModelBackend):
                 returncode=2,
                 reason="API output paths must be inside the project",
             )
-        prompt_file = request.project_dir / "logs" / f"step_{request.step_id}_api_{os.getpid()}.prompt.txt"
+        prompt_file = request.project_dir / "logs" / f"step_{request.step_id}_api_{os.getpid()}_{uuid4().hex}.prompt.txt"
         prompt_file.parent.mkdir(parents=True, exist_ok=True)
         prompt_file.write_text(request.prompt, encoding="utf-8")
         argv = [
