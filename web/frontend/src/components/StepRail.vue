@@ -18,6 +18,7 @@ export default {
   props: {
     project: { type: Object, default: null },
     currentStep: { type: Number, default: -1 },
+    project: { type: Object, default: null },
     awaiting: { type: Boolean, default: false },
     compact: { type: Boolean, default: false },
   },

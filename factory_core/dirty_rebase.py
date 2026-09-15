@@ -84,6 +84,41 @@ def rebase_dirty_classifier_state(
             "SELECT * FROM dirty_flags ORDER BY flag, owner_stage"
         ).fetchall()
     }
+    # Exact cause corrections are append-only and never act as a PASS receipt.
+    corrected_causes: set[str] = set()
+    final_report_hashes: set[str] = set()
+    for row in connection.execute("SELECT receipt_json FROM dirty_classifier_rebases"):
+        receipt = json.loads(row[0])
+        if receipt.get("schema_version") in {
+            "factory-final-evidence-reclassification-v1",
+            "factory-final-judge-projection-reclassification-v1",
+        }:
+            corrected_causes.update(receipt["corrected_cause_ids"])
+            if receipt.get("schema_version") == "factory-final-judge-projection-reclassification-v1":
+                final_report_hashes.add(receipt["projection_receipt"]["report"]["sha256"])
+
+    # Older workers can reconstruct a mutable flag after an exact cause was
+    # corrected. Remove only the row that still points to that same immutable
+    # cause; any different unresolved cause is reconstructed below as usual.
+    removed_by_correction: list[dict[str, Any]] = []
+    if corrected_causes and _table_exists(connection, "dirty_causes"):
+        for key, active in list(active_rows.items()):
+            matches = connection.execute(
+                "SELECT cause_id FROM dirty_causes WHERE flag=? AND owner_stage=? "
+                "AND cause_revision=? AND cause_artifact=? AND baseline_fingerprint=? "
+                "AND current_fingerprint=?",
+                (active["flag"], active["owner_stage"], active["cause_revision"],
+                 active["cause_artifact"], active["baseline_fingerprint"], active["current_fingerprint"]),
+            ).fetchall()
+            if matches and all(row["cause_id"] in corrected_causes for row in matches):
+                connection.execute("DELETE FROM dirty_flags WHERE flag=? AND owner_stage=?", key)
+                del active_rows[key]
+                removed_by_correction.append({
+                    "flag": key[0], "owner_stage": key[1],
+                    "cause_revision": active["cause_revision"], "cause_artifact": active["cause_artifact"],
+                    "old_classifier_sha256": active["classifier_contract_sha256"],
+                    "new_classifier_sha256": current_classifier, "removed_by_exact_correction": True,
+                })
     reconstructed: dict[tuple[str, int], dict[str, Any]] = {}
     clear_revisions: dict[tuple[str, int], list[int]] = defaultdict(list)
     if _table_exists(connection, "dirty_causes"):
@@ -99,6 +134,8 @@ def rebase_dirty_classifier_state(
             "SELECT * FROM dirty_causes ORDER BY cause_revision, cause_id"
         ).fetchall():
             record = dict(row)
+            if record["cause_id"] in corrected_causes:
+                continue
             key = (str(record["flag"]), int(record["owner_stage"]))
             cause_revision = int(record["cause_revision"])
             if any(revision >= cause_revision for revision in clear_revisions.get(key, ())):
@@ -126,6 +163,9 @@ def rebase_dirty_classifier_state(
         source_key: tuple[str, int], record: dict[str, Any]
     ) -> tuple[str, int]:
         artifact = str(record["cause_artifact"])
+        if (source_key == ("FORMAT_DIRTY", 10) and artifact == "judge_evaluation.md"
+                and record["current_fingerprint"] in final_report_hashes):
+            return source_key
         if artifact.startswith("@protected:"):
             return ("MATH_DIRTY", 8)
         # A paper semantic change stores the real ``*.tex`` path as its cause.
@@ -174,11 +214,12 @@ def rebase_dirty_classifier_state(
         ):
             obligations[target_key] = record
 
-    changed: list[dict[str, Any]] = []
+    changed: list[dict[str, Any]] = list(removed_by_correction)
     old_hashes = {
         str(record.get("classifier_contract_sha256") or "UNKNOWN")
         for record in source_obligations.values()
     }
+    old_hashes.update(str(item["old_classifier_sha256"]) for item in removed_by_correction)
     stale_active_keys = sorted(set(active_rows) - set(obligations))
     retired = [
         {

@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict'
+import { projectStepIndex, projectStepName, projectStepStatus } from './src/lib/steps.js'
+const run = {status: 'running', current_step: 4, source_step_id: 4, last_completed_step: 3, scheduler_generation: 'stage_v1', active_subtask: 'model_construction'}
+assert.equal(projectStepIndex(run), 4)
+assert.equal(projectStepName(run), '完整模型构建')
+assert.equal(projectStepStatus(3, run, 4), 'done')
+assert.equal(projectStepStatus(4, run, 4), 'active')
+assert.equal(projectStepStatus(5, run, 4), 'pending')
+assert.equal(projectStepIndex({...run, source_step_id: 0, current_step: 0, last_completed_step: -1}), 0)
+assert.equal(projectStepIndex({...run, source_step_id: '5', current_step: '5'}), 5)
+assert.equal(projectStepIndex({...run, active_subtask: 'reviewer_entry_gate', source_step_id: 8}), 8.5)
+assert.equal(projectStepStatus(8.5, {...run, last_completed_step: 9, source_step_id: 10}, 10), 'done')
+assert.equal(projectStepName({...run, current_step: 16, source_step_id: 16}), '最终审计·编译交付')
+assert.equal(projectStepName({...run, status: 'failed', current_step: 16, source_step_id: 16}), '最终审计·编译交付')
+assert.equal(projectStepName({...run, status: 'completed', current_step: 16}), '已完成')
+assert.equal(projectStepIndex({current_step: 3}), 4)
+assert.equal(projectStepStatus(3, null, 3), 'done')
+assert.equal(projectStepStatus(4, null, 3), 'active')
+assert.equal(projectStepStatus(8.5, {...run, last_completed_step: 8, source_step_id: 9}, 9), 'done')
+console.log('Step display regression: 16 assertions passed')

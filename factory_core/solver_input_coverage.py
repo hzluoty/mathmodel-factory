@@ -35,6 +35,7 @@ class SolverInputCoverage:
     evidence_paths: tuple[Path, ...]
     excluded: tuple[dict[str, Any], ...]
     authorized_drifts: tuple[dict[str, Any], ...] = ()
+    versioned_paths: tuple[Path, ...] = ()
 
 
 class SolverInputDriftError(ValueError):
@@ -475,6 +476,7 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
     included: dict[str, Path] = {}
     evidence: dict[str, Path] = {}
     excluded: dict[str, dict[str, Any]] = {}
+    versioned: dict[str, Path] = {}
     stale_drifts: dict[str, dict[str, Any]] = {}
     missing_inputs: dict[str, dict[str, Any]] = {}
     current_identities: dict[str, dict[str, Any]] = {}
@@ -552,6 +554,15 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
                 {"size": path.stat().st_size, "sha256": file_sha256(path)},
             )
             if current["size"] != expected_size or current["sha256"] != expected_sha256:
+                from .solver_input_versions import reviewed_solver_input_version
+                version_paths = reviewed_solver_input_version(project, record, current["sha256"])
+                if version_paths is not None:
+                    for version_path in version_paths:
+                        key = version_path.relative_to(project).as_posix()
+                        evidence[key] = version_path
+                        versioned[key] = version_path
+                    matched_records.append((record, path))
+                    continue
                 drift = stale_drifts.setdefault(
                     relative, {"path": path, "kinds": set(), "receipts": {}}
                 )
@@ -610,8 +621,8 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
         evidence[authorization.path.relative_to(project).as_posix()] = authorization.path
         authorized_drifts.append(drift.to_dict())
     for relative in sorted(stale_drifts):
-        if relative in included or relative in excluded:
-            continue
+        # A match for one receipt does not authorize a different historical
+        # identity at the same path. Superseded receipts were filtered above.
         details = stale_drifts[relative]
         current = current_identities[relative]
         kind = "content" if "content" in details["kinds"] else "size"
@@ -643,7 +654,8 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
         tuple(included[key] for key in sorted(included)),
         tuple(evidence[key] for key in sorted(evidence)),
         tuple(excluded[key] for key in sorted(excluded)),
-        tuple(authorized_drifts),
+        authorized_drifts=tuple(authorized_drifts),
+        versioned_paths=tuple(versioned[key] for key in sorted(versioned)),
     )
 
 

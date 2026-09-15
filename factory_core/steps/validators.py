@@ -18,6 +18,7 @@ from scripts.workflow_state import (
     step16_ready,
 )
 from ..current_artifact_ownership import reopen_after_step_for_artifact
+from ..paper_sources import count_abstract_placeholders
 
 
 def _text(path: Path) -> str:
@@ -387,9 +388,14 @@ class NativeArtifactValidator:
 
     def _step_13(self, project: Path):
         verdict = gate2_verdict(project)
-        if verdict in {"PASS", "PRECHECK_PASS"} or gate2_continuation_override(
-            project, self.factory_root
-        ):
+        if gate2_continuation_override(project, self.factory_root):
+            return True, "", ("judge_evaluation.md",), {
+                "gate2_continuation_override": True,
+                "judge_verdict": verdict,
+                "judge_completed": False,
+                "delivery_allowed": False,
+            }
+        if verdict in {"PASS", "PRECHECK_PASS"}:
             return True, "", ("judge_evaluation.md",), {}
         if verdict == "INDETERMINATE_REVIEW":
             missing, resume = self._missing_packet_sources(project)
@@ -401,6 +407,12 @@ class NativeArtifactValidator:
                     "normalized_verdict": "PACKET_UPSTREAM_MISSING",
                     "missing_artifacts": missing,
                 }
+            if self._grounded_evidence_indeterminate(project):
+                return False, "Gate 2 reviewer reports an evidence gap", ("judge_evaluation.md",), {
+                    "error_class": "PERMANENT_JUDGE_EVIDENCE_INDETERMINATE",
+                    "normalized_verdict": "INDETERMINATE_REVIEW",
+                    "retry_scope": "new_evidence_required",
+                }
             return False, "Gate 2 evidence is indeterminate", ("judge_evaluation.md",), {
                 "error_class": "TRANSIENT_JUDGE_INFRASTRUCTURE",
                 "normalized_verdict": "INFRA_RETRY",
@@ -410,6 +422,32 @@ class NativeArtifactValidator:
             resume = self._gate2_resume(project, verdict)
             return False, f"Gate 2 requests {verdict}", ("judge_evaluation.md",), {"resume_after_step": resume}
         return False, "Step 13 judge verdict missing or invalid", ("judge_evaluation.md",), {}
+
+    @staticmethod
+    def _grounded_evidence_indeterminate(project: Path) -> bool:
+        """A valid, grounded evidence-gap verdict is not an infrastructure retry."""
+        try:
+            aggregate = json.loads((project / "judge_outputs/aggregate.json").read_text())
+            roles = aggregate.get("roles")
+            indeterminate = aggregate.get("indeterminate_roles")
+            if (aggregate.get("schema_version") != "judge-aggregate-v3"
+                    or not isinstance(roles, list) or len(roles) != 3
+                    or not isinstance(indeterminate, list) or not indeterminate):
+                return False
+            by_role = {r["role"]: r for r in roles}
+            if set(by_role) != {"paper", "math", "execution"}:
+                return False
+            for role, result in by_role.items():
+                if "error" not in result or result["error"] is not None:
+                    return False
+                grounding = json.loads((project / f"judge_outputs/{role}.grounding.json").read_text())
+                if grounding.get("valid") is not True or grounding.get("errors"):
+                    return False
+            return all(by_role[role].get("status") == "INDETERMINATE"
+                       and by_role[role].get("verdict") == "INDETERMINATE"
+                       for role in indeterminate)
+        except (OSError, ValueError, KeyError, TypeError):
+            return False
 
     @staticmethod
     def _missing_packet_sources(project: Path) -> tuple[list[str], int | None]:
@@ -470,12 +508,12 @@ class NativeArtifactValidator:
 
     def _step_14(self, project: Path):
         paper = _paper(project)
-        ok = _has(project, "abstract_draft.md", 20) and paper.is_file() and "ABSTRACT_PLACEHOLDER" not in _text(paper)
+        ok = _has(project, "abstract_draft.md", 20) and paper.is_file() and count_abstract_placeholders(_text(paper)) == 0
         return ok, "Step 14 abstract is incomplete", ("abstract_draft.md",), {}
 
     def _step_15(self, project: Path):
         paper = _paper(project)
-        ok = _has(project, "citation_audit.md", 10) and _has(project, "derobotification.md", 10) and paper.is_file() and "ABSTRACT_PLACEHOLDER" not in _text(paper)
+        ok = _has(project, "citation_audit.md", 10) and _has(project, "derobotification.md", 10) and paper.is_file() and count_abstract_placeholders(_text(paper)) == 0
         return ok, "Step 15 polish artifacts invalid", ("citation_audit.md", "derobotification.md"), {}
 
     def _step_16(self, project: Path):

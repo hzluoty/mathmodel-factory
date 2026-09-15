@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -18,21 +17,16 @@ SCHEMA_VERSION = "evidence-grounding-v1"
 HARD_ROLE_SCHEMA = "judge-hard-role-v2"
 PAPER_ROLE_SCHEMA = "judge-paper-role-v3"
 ROLES = ("math", "execution", "paper")
-SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-HEADER_RE = re.compile(r"\n----- FILE: ([^\n]+) -----\n")
-OMITTED_MARKER = "\n----- SOME SELECTED FILES OMITTED; SEE PACKET MANIFEST -----\n"
-
-
-class GroundingError(ValueError):
-    """A packet or role envelope cannot be verified."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-
-
-def sha256_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
+try:
+    from scripts.packet_context import (
+        GroundingError, SHA256_RE, HEADER_RE, OMITTED_MARKER,
+        sha256_bytes, _active_chunks, _read_role_asset, _context_sections,
+    )
+except ModuleNotFoundError:  # Direct execution from scripts/.
+    from packet_context import (
+        GroundingError, SHA256_RE, HEADER_RE, OMITTED_MARKER,
+        sha256_bytes, _active_chunks, _read_role_asset, _context_sections,
+    )
 
 
 def sha256_file(path: Path) -> str:
@@ -165,144 +159,6 @@ def _references(payload: dict[str, Any], role: str) -> Iterable[tuple[str, dict[
             )
 
 
-def _active_chunks(
-    files: list[Any],
-) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
-    by_path: dict[str, dict[str, Any]] = {}
-    by_chunk_id: dict[str, dict[str, Any]] = {}
-    for index, item in enumerate(files):
-        if not isinstance(item, dict):
-            raise GroundingError(
-                "MANIFEST_FILE_INVALID", f"manifest files[{index}] must be an object"
-            )
-        if item.get("status") not in {"included", "truncated"}:
-            continue
-
-        path = item.get("path")
-        if (
-            not isinstance(path, str)
-            or not path.strip()
-            or "\r" in path
-            or "\n" in path
-        ):
-            raise GroundingError(
-                "ACTIVE_CHUNK_PATH_INVALID",
-                f"active manifest path is invalid at files[{index}]",
-            )
-        chunk_id = item.get("chunk_id")
-        if not isinstance(chunk_id, str) or SHA256_RE.fullmatch(chunk_id) is None:
-            raise GroundingError(
-                "ACTIVE_CHUNK_ID_INVALID",
-                f"active chunk_id is invalid for path: {path}",
-            )
-        included_sha256 = item.get("included_sha256")
-        if (
-            not isinstance(included_sha256, str)
-            or SHA256_RE.fullmatch(included_sha256) is None
-        ):
-            raise GroundingError(
-                "ACTIVE_CHUNK_HASH_INVALID",
-                f"active included_sha256 is invalid for path: {path}",
-            )
-        included_bytes = item.get("included_bytes")
-        if (
-            not isinstance(included_bytes, int)
-            or isinstance(included_bytes, bool)
-            or included_bytes < 0
-        ):
-            raise GroundingError(
-                "ACTIVE_CHUNK_BYTES_INVALID",
-                f"active included_bytes is invalid for path: {path}",
-            )
-        source_line_start = item.get("source_line_start")
-        if (
-            not isinstance(source_line_start, int)
-            or isinstance(source_line_start, bool)
-            or source_line_start < 1
-        ):
-            raise GroundingError(
-                "ACTIVE_CHUNK_SOURCE_LINE_INVALID",
-                f"active source_line_start is invalid for path: {path}",
-            )
-        if path in by_path:
-            raise GroundingError(
-                "DUPLICATE_ACTIVE_PATH", f"duplicate active manifest path: {path}"
-            )
-        if chunk_id in by_chunk_id:
-            raise GroundingError(
-                "DUPLICATE_ACTIVE_CHUNK_ID",
-                f"duplicate active manifest chunk_id: {chunk_id}",
-            )
-        by_path[path] = item
-        by_chunk_id[chunk_id] = item
-    return by_path, by_chunk_id
-
-
-def _context_sections(
-    text: str, expected_by_path: dict[str, dict[str, Any]]
-) -> dict[str, dict[str, Any]]:
-    matches = list(HEADER_RE.finditer(text))
-    sections: dict[str, dict[str, Any]] = {}
-    for index, match in enumerate(matches):
-        path = match.group(1)
-        if path in sections:
-            raise GroundingError(
-                "DUPLICATE_CONTEXT_SECTION", f"duplicate context section: {path}"
-            )
-        item = expected_by_path.get(path)
-        if item is None:
-            raise GroundingError(
-                "UNDECLARED_CONTEXT_SECTION", f"undeclared context section: {path}"
-            )
-
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        raw = text[match.end() : end]
-        if index + 1 == len(matches) and raw.endswith(OMITTED_MARKER):
-            raw = raw[: -len(OMITTED_MARKER)]
-        candidates = [raw]
-        if raw.endswith("\n"):
-            candidates.append(raw[:-1])
-        if raw.endswith("\n\n"):
-            candidates.append(raw[:-2])
-
-        expected_hash = item["included_sha256"]
-        hash_matches = [
-            candidate
-            for candidate in candidates
-            if sha256_bytes(candidate.encode("utf-8")) == expected_hash
-        ]
-        if not hash_matches:
-            raise GroundingError(
-                "CONTEXT_SECTION_HASH_MISMATCH",
-                f"context section hash does not match manifest: {path}",
-            )
-        expected_bytes = item["included_bytes"]
-        content = next(
-            (
-                candidate
-                for candidate in hash_matches
-                if len(candidate.encode("utf-8")) == expected_bytes
-            ),
-            None,
-        )
-        if content is None:
-            raise GroundingError(
-                "CONTEXT_SECTION_SIZE_MISMATCH",
-                f"context section byte count does not match manifest: {path}",
-            )
-        sections[path] = {
-            "text": content,
-            "context_line_start": text.count("\n", 0, match.end()) + 1,
-        }
-    missing = sorted(set(expected_by_path) - set(sections))
-    if missing:
-        raise GroundingError(
-            "MISSING_CONTEXT_SECTION",
-            "context omits manifest chunks: " + ", ".join(missing),
-        )
-    return sections
-
-
 def _occurrence_count(text: str, quote: str) -> int:
     count = 0
     start = 0
@@ -322,6 +178,7 @@ def _validate_grounding_payloads(
     requested_role: str,
     manifest_label: str,
     context_label: str,
+    role_asset_loader: Callable[[str], bytes] | None = None,
     role_output_loader: Callable[[], bytes] | None = None,
     manifest_loader: Callable[[], bytes] | None = None,
     context_loader: Callable[[], bytes] | None = None,
@@ -416,12 +273,14 @@ def _validate_grounding_payloads(
         except ModuleNotFoundError:  # direct script execution
             from packet_evidence import PacketEvidence
         PacketEvidence(files)  # Validate aliases without inventing context chunks.
-        sections = _context_sections(context_text, chunks_by_path)
+        sections = _context_sections(context_text, chunks_by_path, asset_loader=role_asset_loader)
         try:
             from scripts.numpy_evidence_view import SUFFIXES as NUMPY_SUFFIXES, verify_capsule
         except ModuleNotFoundError:  # direct script execution
             from numpy_evidence_view import SUFFIXES as NUMPY_SUFFIXES, verify_capsule
         for path, item in chunks_by_path.items():
+            if item.get("content_location") == "asset":
+                continue
             if "document_review" in item or path.lower().endswith((".xlsx", ".pdf")):
                 try:
                     from scripts.document_evidence_view import verify_view as verify_document
@@ -530,7 +389,8 @@ def _validate_grounding_payloads(
             relative_line = section["text"].count("\n", 0, offset)
             line_start = chunk["source_line_start"] + relative_line
             line_end = line_start + quote.count("\n")
-            context_line_start = section["context_line_start"] + relative_line
+            context_line_start = (int(section["context_line_start"]) + relative_line
+                                  if section["context_line_start"] is not None else None)
             refs.append(
                 {
                     "ref_id": ref_id,
@@ -542,7 +402,9 @@ def _validate_grounding_payloads(
                     "source_line_start": line_start,
                     "source_line_end": line_end,
                     "context_line_start": context_line_start,
-                    "context_line_end": context_line_start + quote.count("\n"),
+                    "context_line_end": (context_line_start + quote.count("\n")
+                                         if context_line_start is not None else None),
+                    **({"asset_path": section["asset_path"]} if "asset_path" in section else {}),
                 }
             )
     except GroundingError as exc:
@@ -610,6 +472,7 @@ def validate_grounding_bytes(
         requested_role=role,
         manifest_label="manifest",
         context_label="context",
+        role_asset_loader=assets.__getitem__ if assets is not None else None,
         asset_loader=assets.__getitem__ if assets is not None else None,
     )
 
@@ -639,6 +502,7 @@ def validate_grounding(
         requested_role=requested_role,
         manifest_label=str(manifest_path),
         context_label=str(context_path),
+        role_asset_loader=lambda relative: _read_role_asset(manifest_path.parent, relative),
         asset_loader=lambda relative: read_asset(project, relative),
         pdf_verifier=verify_pdf_source,
         manifest_loader=lambda: _read_bytes(

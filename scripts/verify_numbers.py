@@ -33,6 +33,10 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from factory_core.paper_sources import expand_latex_document, primary_paper_source
+try:
+    from .number_manifest_stream import verify_sources
+except ImportError:  # direct execution and legacy scripts-on-sys.path callers
+    from number_manifest_stream import verify_sources
 
 
 def compute_checksum(value: Any) -> str:
@@ -234,46 +238,34 @@ def collect_number_metrics(project_dir: str | Path, base_name: str) -> Dict[str,
     }
 
 
-def scan_results_directory(project_dir: Path) -> Dict[str, Any]:
-    """
-    Scan results/ directory and build manifest of all numerical values.
-
-    Returns:
-        {
-            "source": "results/p1/values.json",
-            "values": {
-                "objective_value": {"value": 187.2, "checksum": "a3f5b2c1", "type": "float"},
-                ...
-            }
-        }
-    """
-    manifest = {}
+def iter_result_numbers(project_dir: Path):
+    """Yield (source, key, entry) for every numeric JSON leaf/XLSX cell."""
     results_dir = project_dir / "results"
 
-    def add_numeric(source: str, key: str, value: int | float) -> None:
+    def add_numeric(source: str, key: str, value: int | float):
         if isinstance(value, bool):
             return
-        manifest.setdefault(source, {})[key] = {
+        return source, key, {
             "value": value,
             "checksum": compute_checksum(value),
             "type": "float" if isinstance(value, float) else "int",
         }
 
-    def walk_json(value: Any, source: str, prefix: str = "") -> None:
+    def walk_json(value: Any, source: str, prefix: str = ""):
         if isinstance(value, bool):
             return
         if isinstance(value, (int, float)):
             if prefix:
-                add_numeric(source, prefix, value)
+                yield add_numeric(source, prefix, value)
             return
         if isinstance(value, dict):
             for child_key, child_value in value.items():
                 child = f"{prefix}.{child_key}" if prefix else str(child_key)
-                walk_json(child_value, source, child)
+                yield from walk_json(child_value, source, child)
         elif isinstance(value, list):
             for idx, child_value in enumerate(value):
                 child = f"{prefix}[{idx}]" if prefix else f"[{idx}]"
-                walk_json(child_value, source, child)
+                yield from walk_json(child_value, source, child)
 
     if results_dir.exists():
         for json_file in sorted(results_dir.rglob("*.json")):
@@ -281,17 +273,17 @@ def scan_results_directory(project_dir: Path) -> Dict[str, Any]:
                 with open(json_file, encoding="utf-8") as f:
                     data = json.load(f)
                 relative_path = str(json_file.relative_to(project_dir))
-                walk_json(data, relative_path)
+                yield from walk_json(data, relative_path)
             except Exception as e:
                 print(f"Warning: Failed to parse {json_file}: {e}", file=sys.stderr)
 
-    try:
-        from openpyxl import load_workbook
-    except ImportError:
-        load_workbook = None
-
-    if load_workbook is not None:
-        for xlsx_file in sorted(project_dir.glob("result*.xlsx")):
+    xlsx_files = sorted(project_dir.glob("result*.xlsx"))
+    if xlsx_files:
+        try:
+            from openpyxl import load_workbook
+        except ImportError as exc:
+            raise RuntimeError("openpyxl is required to verify result workbooks") from exc
+        for xlsx_file in xlsx_files:
             try:
                 wb = load_workbook(xlsx_file, data_only=True, read_only=True)
                 relative_path = str(xlsx_file.relative_to(project_dir))
@@ -302,11 +294,16 @@ def scan_results_directory(project_dir: Path) -> Dict[str, Any]:
                             if isinstance(value, bool):
                                 continue
                             if isinstance(value, (int, float)):
-                                add_numeric(relative_path, f"{ws.title}!{cell.coordinate}", value)
+                                yield add_numeric(relative_path, f"{ws.title}!{cell.coordinate}", value)
                 wb.close()
             except Exception as e:
                 print(f"Warning: Failed to parse {xlsx_file}: {e}", file=sys.stderr)
 
+def scan_results_directory(project_dir: Path) -> Dict[str, Any]:
+    """Compatibility API; production verification uses the bounded iterator."""
+    manifest = {}
+    for source, key, entry in iter_result_numbers(project_dir):
+        manifest.setdefault(source, {})[key] = entry
     return manifest
 
 
@@ -392,6 +389,11 @@ def validate_key_result_sources(project_dir: Path) -> List[Tuple[str, str, str]]
 
 def _strip_non_content_latex(line: str) -> str:
     """Remove LaTeX commands whose numeric arguments are formatting, not results."""
+    # TeX en/em dashes between numeric endpoints are range punctuation, not
+    # unary minus signs. Keep both endpoints and genuine single minus signs.
+    line = re.sub(r'(?<=\d)\s*--+\s*(?=\d)', ' ', line)
+    # Explicit Chinese section cross-references are document coordinates.
+    line = re.sub(r'第\s*\d+(?:\.\d+)*(?:[、,，]\s*\d+(?:\.\d+)*)*\s*[节章]', '', line)
     # ``lstinputlisting`` options are often split across several lines.  The
     # whole command is removed below when it is written on one line, but a
     # bare option such as ``lastline=650`` otherwise looks like a scientific
@@ -540,33 +542,10 @@ def verify_paper(project_dir: Path, base_name: str) -> bool:
         print(f"✗ numbers_manifest.json not found. Run with --generate first.", file=sys.stderr)
         return False
 
-    with open(manifest_file) as f:
-        manifest_data = json.load(f)
-
-    # Verify that the manifest still reflects current result artifacts.
-    current_sources = scan_results_directory(project_dir)
-    source_mismatches = []
     key_result_source_issues = validate_key_result_sources(project_dir)
     from scripts.canonical_claims import verify as verify_canonical_claims
     key_result_source_issues.extend(("canonical_version", "results/canonical_claims.json", error)
         for error in verify_canonical_claims(project_dir, base_name))
-
-    # Build reverse lookup entries.  Do not collapse duplicate values: common
-    # integers such as 0/1/2 may legitimately appear in multiple result files
-    # with different JSON/XLSX scalar types.
-    value_sources = []
-    for source_path, values in manifest_data["sources"].items():
-        for key, entry in values.items():
-            value = entry["value"]
-            checksum = entry["checksum"]
-            if isinstance(value, list):
-                value = tuple(value)
-            current_entry = current_sources.get(source_path, {}).get(key)
-            if current_entry is None:
-                source_mismatches.append((source_path, key, "missing"))
-            elif current_entry.get("checksum") != checksum:
-                source_mismatches.append((source_path, key, "checksum"))
-            value_sources.append((value, source_path, key, checksum))
 
     # Extract numbers from paper
     paper_file = primary_paper_source(project_dir, base_name)
@@ -576,24 +555,9 @@ def verify_paper(project_dir: Path, base_name: str) -> bool:
 
     paper_numbers = extract_numbers_from_project(project_dir, base_name)
 
-    # Check each number
-    untraced = []
-    def matches(manifest_value: float, paper_value: float) -> bool:
-        abs_tol = 1e-6
-        rel_tol = 5e-3
-        return abs(float(manifest_value) - paper_value) <= max(abs_tol, abs(float(manifest_value)) * rel_tol)
-
-    for line_num, context, value in paper_numbers:
-        # Try to find this value in manifest (with tolerance for floats)
-        found = False
-        for manifest_value, source, key, checksum in value_sources:
-            if isinstance(manifest_value, (int, float)):
-                if matches(float(manifest_value), value):
-                    found = True
-                    break
-
-        if not found:
-            untraced.append((line_num, context, value))
+    source_mismatches, untraced = verify_sources(
+        project_dir, paper_numbers, iter_result_numbers(project_dir)
+    )
 
     # Report results
     report_file = project_dir / "number_verification.md"

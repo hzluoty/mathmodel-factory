@@ -25,6 +25,7 @@ export function currentStepIndex(project = {}) {
   if (executionStatus(project) === 'completed') return 16
   const source = index(project.source_step_id)
   if (source !== null) return source
+  if (project.scheduler_generation && index(project.current_step) !== null) return index(project.current_step)
   if (project.last_completed_step != null) return Math.min(16, Math.max(0, Number(project.last_completed_step) + 1))
   // Legacy API: current_step is a completed checkpoint. Native status has source_step_id.
   return Math.min(16, Math.max(0, Number(project.current_step ?? -1) + 1))

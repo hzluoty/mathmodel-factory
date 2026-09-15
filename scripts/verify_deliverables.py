@@ -33,6 +33,8 @@ Exit code: 0 = PASS（或无契约文件时 SKIP，除非 --strict）；1 = FAIL
 from __future__ import annotations
 
 import json
+import bisect
+import math
 import re
 import sys
 from pathlib import Path
@@ -40,7 +42,7 @@ from pathlib import Path
 if __package__ in {None, ""}:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from factory_core.paper_sources import primary_paper_source
+from factory_core.paper_sources import primary_paper_source, expand_latex_document, LatexDependencyError
 
 TOL_REL = 0.005          # 相对容差 0.5%（与 Gate 1 数字核对口径一致）
 XLSX_UNMATCHED_MAX = 0.15  # xlsx 数值单元格允许的最大不可追溯比例（派生列如占比%）
@@ -117,9 +119,23 @@ def decimals_of(x: float) -> int:
     return 0
 
 
+class IndexedTruthValues(list):
+    """Sorted membership index; duplicate values do not affect existence."""
+    def __init__(self, values):
+        super().__init__(sorted(set(values)))
+        self.all_finite = all(math.isfinite(value) for value in self)
+
+
 def value_matches(x: float, truth_values: list[float]) -> bool:
     """x 与任一真相值在容差内匹配（容差 = 显示精度舍入 ∪ 相对 0.5%）。"""
     round_tol = 0.5 * 10 ** (-decimals_of(x))
+    if isinstance(truth_values, IndexedTruthValues) and truth_values.all_finite and math.isfinite(x):
+        # On either side of x, both absolute error and error/abs(t) are
+        # minimized by the adjacent value (TOL_REL < 1). Opposite-sign values
+        # cannot satisfy relative tolerance. Keep the exact legacy comparison.
+        index = bisect.bisect_left(truth_values, x)
+        candidates = truth_values[max(0, index-1):index+1]
+        return any(abs(x-t) <= max(round_tol, TOL_REL*abs(t)) for t in candidates)
     for t in truth_values:
         if abs(x - t) <= max(round_tol, TOL_REL * abs(t)):
             return True
@@ -212,8 +228,13 @@ def main() -> int:
             failures.append("论文源文件不存在，无法核对策略表")
             tables_missing = [t.get("problem", "?") for t in tables_required]
         else:
-            tex = read_text(tex_path)
-            blocks = extract_tabular_blocks(tex)
+            try:
+                expanded = expand_latex_document(project, base)
+                tex = "\n".join(line.text for line in expanded.lines)
+                blocks = extract_tabular_blocks(tex)
+            except (OSError, LatexDependencyError) as exc:
+                failures.append(f"论文依赖无法安全展开: {exc}")
+                blocks = []
             for spec in tables_required:
                 fields = [normalize_field(f) for f in (spec.get("fields") or []) if normalize_field(f)]
                 if not fields:
@@ -233,7 +254,7 @@ def main() -> int:
 
     # ── 3. Excel ↔ 结果真相源一致性 ─────────────────────────────
     truth = collect_truth_numbers(project)
-    truth_values = [v for _, v in truth]
+    truth_values = IndexedTruthValues(v for _, v in truth)
     total_cells = 0
     unmatched_cells: list[float] = []
     if xlsx_paths and truth_values:

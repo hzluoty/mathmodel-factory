@@ -76,7 +76,7 @@
 import Icon from './Icon.vue'
 import { relativeTime } from '../lib/api.js'
 import { statusLabel } from '../lib/status.js'
-import { stepByIndex } from '../lib/steps.js'
+import { projectStepIndex, projectStepName } from '../lib/steps.js'
 
 export default {
   name: 'ProblemArchiveCard',
@@ -108,11 +108,7 @@ export default {
       }[run.status] || ''
     },
     stepText(run) {
-      const current = Number(run.current_step ?? -1)
-      if (current >= 16) return 'Step 16 · 已完成'
-      const next = Math.min(16, Math.max(0, current + 1))
-      const step = stepByIndex(next)
-      return step ? `Step ${next} · ${step.name}` : `Step ${next}`
+      return `Step ${projectStepIndex(run)} · ${projectStepName(run)}`
     },
   },
 }

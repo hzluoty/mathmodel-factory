@@ -45,6 +45,20 @@ def descriptor(project, root, step_id, role, template_prompt, *, prompt_format="
     images = []
     for r in ("math", "execution", "paper"):
         manifest = json.loads((project / f"judge_packets/{r}/manifest.json").read_text())
+        from scripts.packet_context import _read_role_asset
+        from scripts.packet_evidence import PacketEvidence
+        evidence = PacketEvidence(manifest.get("files", []))
+        for item in manifest.get("files", []):
+            if item.get("content_location") != "asset":
+                continue
+            if not evidence.complete(item["path"]):
+                raise JudgeBatchError("incomplete role-local asset binding")
+            data = _read_role_asset(project / f"judge_packets/{r}", item["asset_path"])
+            if len(data) != item["asset_size"] or hashlib.sha256(data).hexdigest() != item["asset_sha256"]:
+                raise JudgeBatchError("role-local asset changed before batch")
+            path = f"judge_packets/{r}/{item['asset_path']}"
+            if path not in paths:
+                paths.append(path)
         for path, info in manifest_assets(manifest).items():
             data = read_asset(project, path)
             if {"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()} != info:

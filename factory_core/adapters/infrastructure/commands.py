@@ -39,10 +39,14 @@ class CommandRunner:
         log_path: Path | None = None,
     ) -> CommandResult:
         timeout_seconds = cap_timeout(timeout_seconds)
+        # Packaging occurs after Final Audit. Its operational receipt must not
+        # become a new solver-evidence input to that already-completed review.
+        # Keep the full log in the existing self-authored receipt namespace.
+        log_label = "receipt_package_submission" if label == "package_submission" else label
         target = log_path or (
             project
             / "logs"
-            / f"native_{label}_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}.log"
+            / f"native_{log_label}_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}.log"
         )
         # Explicit report paths represent the latest verification result, not
         # an append-only runtime log.  Reusing one must not mix stale project

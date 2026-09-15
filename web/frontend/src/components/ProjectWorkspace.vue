@@ -138,9 +138,9 @@
 
       <PipelineTimeline
         v-else-if="activeTab === 'pipeline'"
+        :project="project"
         class="rise"
         :current-step="project.current_step"
-        :project="project"
         :steps-data="stepsData"
         :awaiting="project.consultation_pending || project.selection_pending"
         :registry="modelRegistry"
@@ -274,7 +274,7 @@ import ContestTimingPanel from './ContestTimingPanel.vue'
 import ModelingDirectionPanel from './ModelingDirectionPanel.vue'
 import SelectionPanel from './SelectionPanel.vue'
 import { relativeTime } from '../lib/api.js'
-import { stepByIndex, stepConfigKey } from '../lib/steps.js'
+import { hasNativeStepCursor, projectStepIndex, projectStepName, stepConfigKey } from '../lib/steps.js'
 import { buildWorkspaceActions, workspaceTabs } from '../lib/workspaceUi.js'
 import { useToasts } from '../composables/useToasts.js'
 import { useModels } from '../composables/useModels.js'
@@ -570,9 +570,11 @@ export default {
       }
     }
 
+    // Automatic cloud prompts are disabled; full feature removal is deferred.
+    const cloudAcceleratorPromptsEnabled = false
     let cloudDialogTimer = null
     function checkCloudAccelerator(currentStep) {
-      if (lastStep.value !== null && currentStep !== lastStep.value) {
+      if (cloudAcceleratorPromptsEnabled && lastStep.value !== null && currentStep !== lastStep.value) {
         const computeSteps = [5, 6]
         if (computeSteps.includes(currentStep)) {
           cloudEstimate.value = currentStep === 5 ? { local: 6, cloud: 1.5 } : { local: 8, cloud: 2 }

@@ -84,15 +84,36 @@ def _inline_context(project: Path, rel_paths: list[str]) -> tuple[str, list[dict
     seen: set[Path] = set()
     for rel in rel_paths:
         p = _context_path(project, rel)
+        role_context = Path(rel).name == "context.txt" and Path(rel).parent.name in {"math", "execution", "paper"}
         candidates: list[tuple[str, Path]] = []
-        if p.name == "context.txt" and p.parent.name in {"math", "execution", "paper"}:
+        asset_bytes: dict[Path, bytes] = {}
+        if role_context:
             manifest = p.with_name("manifest.json")
             manifest_label = (Path(rel).parent / "manifest.json").as_posix()
             candidates.append((manifest_label, manifest))
         candidates.append((rel, p))
+        if role_context:
+            from packet_context import _read_role_asset
+
+            manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+            for item in manifest_data.get("files", []):
+                if item.get("content_location") != "asset":
+                    continue
+                relative = item.get("asset_path")
+                role_dir = project / Path(rel).parent
+                raw = _read_role_asset(role_dir, relative)
+                if len(raw) != item.get("asset_size") or _sha256(raw) != item.get("asset_sha256"):
+                    raise ValueError("required role asset identity mismatch: " + str(relative))
+                if item.get("asset_quote_mode") != "text":
+                    raise ValueError("HTTP review cannot inspect required opaque role asset: " + str(relative))
+                if len(raw) != item.get("included_bytes") or _sha256(raw) != item.get("included_sha256"):
+                    raise ValueError("required text asset chunk identity mismatch: " + str(relative))
+                candidate = role_dir / relative
+                asset_bytes[candidate] = raw
+                candidates.append(((Path(rel).parent / relative).as_posix(), candidate))
         for label, candidate in candidates:
             strict_packet = (candidate.parent.name in {"math", "execution", "paper"}
-                             and candidate.name in {"context.txt", "manifest.json"}) or label == "judge_packets/objective_evidence.json"
+                             and candidate.name in {"context.txt", "manifest.json"}) or label == "judge_packets/objective_evidence.json" or candidate in asset_bytes
             resolved = candidate.resolve()
             if resolved in seen:
                 continue
@@ -103,7 +124,8 @@ def _inline_context(project: Path, rel_paths: list[str]) -> tuple[str, list[dict
                         raise ValueError("required judge input missing: " + label)
                     records.append({"path": label, "status": "missing"})
                     continue
-                data = candidate.read_text(encoding="utf-8", errors="strict" if strict_packet else "replace")
+                data = (asset_bytes[candidate].decode("utf-8") if candidate in asset_bytes
+                        else candidate.read_text(encoding="utf-8", errors="strict" if strict_packet else "replace"))
             except OSError:
                 if strict_packet:
                     raise ValueError("required judge input unreadable: " + label)

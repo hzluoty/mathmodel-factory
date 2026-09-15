@@ -1,4 +1,5 @@
 import json
+import hashlib
 import signal
 import sys
 import time
@@ -225,8 +226,9 @@ def test_native_codex_backend_isolated_uses_current_safe_exec_flags(
     assert result.returncode == 0
     argv = list(supervisor.request.argv)
     assert "--full-auto" not in argv
-    assert "--sandbox" not in argv
-    assert "--approve-for-me" in argv
+    assert argv[argv.index("--sandbox") + 1] == "workspace-write"
+    assert 'approval_policy="never"' in argv
+    assert "--approve-for-me" not in argv
     assert "--ephemeral" in argv
     assert argv[argv.index("--output-last-message") + 1] == str(final_response)
     assert "service_tier" not in " ".join(argv)
@@ -627,7 +629,9 @@ def test_native_judge_stages_codex_final_response_and_marks_review_phase(tmp_pat
     assert request.output_file.read_text(encoding="utf-8").startswith("VERDICT: PASS\n")
     assert "REVIEW_PHASE: PROVISIONAL_STEP_13" in request.prompt
     assert "expected at this phase" in request.prompt
-    assert "only permitted inputs are exactly judge_packets/paper/context.txt" in request.prompt
+    assert "permitted packet inputs are judge_packets/paper/context.txt" in request.prompt
+    assert "content_location=asset and asset_path" in request.prompt
+    assert "never read another role's assets" in request.prompt
     assert "Never omit the paper/ directory" in request.prompt
 
     final = StepContext(project, project.name, 16, 1, 3600, 0)
@@ -682,6 +686,8 @@ def test_native_judge_grounding_retry_includes_failure_and_packet_excerpt(
                         "status": "included",
                         "chunk_id": chunk_id,
                         "source_line_start": 100,
+                        "included_sha256": hashlib.sha256(source.encode()).hexdigest(),
+                        "included_bytes": len(source.encode()),
                     }
                 ],
             }

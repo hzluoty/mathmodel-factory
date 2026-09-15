@@ -642,10 +642,16 @@ def list_artifacts(project: Path) -> list[dict[str, Any]]:
         resolve_latex_dependency_graph,
     )
 
+    # Dependency discovery returns resolved paths, including when the project
+    # is exposed through a control-plane symlink. Use one root for all entries.
+    project = project.resolve()
     items: list[dict[str, Any]] = []
     seen: set[str] = set()
 
     def add(path: Path, group: str) -> None:
+        path = path.resolve()
+        if not path.is_relative_to(project):
+            return
         if len(items) >= MAX_ARTIFACTS or not path.is_file():
             return
         if path.suffix.lower() in SKIP_SUFFIX:

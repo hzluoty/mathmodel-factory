@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-15: production alignment and audit boundary repairs
+
+- Reject every unreviewed solver receipt identity even when another version of the same path is included.
+- Include hash-verified complete role-local text assets in HTTP review prompts; reject unsupported opaque assets and unsafe role directory links.
+- Require openpyxl at runtime and reject workbook verification when the dependency is unavailable.
+
 - 2026-09-15: Removed superseded June organization/optimization reports and their old
   optimization changelog, historical Web
   deployment/upload/consultation reports, and obsolete interface, screenshot,
@@ -12,6 +18,17 @@
   backup and stopped tracking six generated paper artifacts under `complete/`;
   their local copies remain available for the showcase and calibration.
 
+## 2026-09-13: integrate server fixes with the current GitHub baseline
+
+- Merge the September 10–12 audit, delivery recovery, input-version and UI repairs while retaining the current architecture and document/numerical evidence contracts.
+- Register new artifact rules in the current native ownership extension; preserve the frozen registry and keep receipt-proved final reports at their finalization owner during rebases.
+- Share packet context and asset verification through an independent module so production entrypoints retain the Phase 7/8 import boundary. Audit fingerprints include the shared implementation.
+- Bind complete role-local assets to native audit batches and both filesystem and byte grounding APIs, alongside existing rendered document evidence.
+- Preserve native cursor display and current audit/delivery status controls. This source integration does not redeploy or restart the running server.
+- Refresh operational source manifests, unchanged-symbol locations and their deterministically derived identity fixtures. The legacy classifier and workflow semantic hashes remain unchanged; golden replay is verified across five hash seeds.
+- Declare openpyxl in the locked development dependencies so the workbook regression runs in the minimal CI environment.
+
+## Earlier integration work
 - CI uses relative runtime aliases that remain resolvable during sandbox setup;
   explicit source overrides retain precedence over shared test fixture caches.
 - Formal P0 and audit execution preserve read-only candidate sources, trusted
@@ -615,9 +632,79 @@
   bind submission/external/failure row facts to recorded events, and fail closed
   on unbound non-empty legacy result refs.
 
+## 2026-09-12: keep packaging receipts out of reviewed solver inputs
+
+- Default package_submission command logs use the existing native_receipt namespace, preserving their full contents without introducing new execution-review inputs after Final Audit. Explicit log paths and solver logs remain unchanged.
+- Regression tests verify an unchanged packet fingerprint after packaging and a changed execution fingerprint after a real solver log, plus explicit-path behavior (2 tests pass).
+
+## 2026-09-12: preserve an explicit precheck skip after a prior PASS
+
+- A source-verdict-bound continuation can skip Step 13 even when the retained genuine final judgment is PASS or PRECHECK_PASS. The skip still records no review and grants no delivery permission; Step 16 remains excluded.
+- Native validation preserves the explicit skip metadata before accepting the prior PASS. Nineteen scoped skip and scheduler tests pass.
+
+## 2026-09-12: bounded opt-in complete evidence capacity
+
+- Preserve default 256 MB per-file / 512 MB total judge assets. Explicit per-role capacity may be bounded at 512 MB per file and 2 GB total for complete saved fields, with unchanged integrity and containment enforcement.
+- Fifty focused packet, asset and capacity tests pass, including invalid-limit and tamper rejection.
+
+## 2026-09-12: fresh final-review packets and opaque evidence assets
+
+- After a reusable-audit cache miss, final review packets are rebuilt after current compilation and acceptance checks so isolated reviewers receive the actual current reports. Cached successful audits retain their existing fast path.
+- Hash-pinned PDF and ZIP source artifacts can be supplied as complete opaque assets with unchanged size, path and integrity checks; no automatic rendering or extraction is implied.
+- Validation: reproduced stale FAIL report consumption before the fix; 51 targeted audit, packet and asset tests passed after the fix. Existing numerical evidence is preserved and newly included without integration.
+
+## 2026-09-12: stable derived-verification evidence
+
+- CLI machine reports separate stable comparison results from complete transient execution traces retained in captured stdout. All checks, failures, return codes and source/output identities remain enforced. The library return contract remains unchanged.
+- Validation: six focused tests passed, including variable subprocess logs, mutated output rejection and failed generator diagnostics; two real publication derivations produced byte-identical reports and unchanged scientific artifacts.
+
+## 2026-09-12: publication scope identity ownership
+
+- The exact publication scope review manifest belongs to finalization; changes still require final audit and remain included in final inputs and submission. Its unchanged scientific scope guard, model implementation and quality contracts retain Stage3 ownership.
+- Validation: 61 dirty/finalization tests passed, plus real-project scope-guard checks rejecting stronger certification, paper hash drift and model hash drift. Audit launch now uses the existing complete system runtime and checks Excel/numerical dependencies before work starts.
+
+## 2026-09-12: complete isolated judge assets and grounded indeterminacy
+
+- Judge packet v6 can include explicitly declared complete text and binary assets with SHA-256 and size binding. Isolated reviewers receive only their role's verified copies; missing, corrupt, or escaping assets fail closed, and exact quotes from complete text assets are grounded against their bytes.
+- Final audit distinguishes valid, grounded evidence insufficiency from malformed or ungrounded review output. Genuine indeterminacy requires new evidence rather than repeating the same review as an infrastructure retry; no verdict is promoted to PASS.
+- Validation: 130 focused packet, asset, grounding, aggregation, routing, skipped-precheck, stage and native-orchestration tests passed; git diff --check passed.
+
+## 2026-09-12: final evidence context and bounded recovery
+
+- Final judge packets accept optional SHA-bound required evidence with per-role context budgets; absent configuration preserves existing limits. Configuration changes belong to final audit, retaining a fresh audit obligation.
+- Native content-freeze decisions no longer rewrite routed human-review content before committing their SQLite receipt; CLI and Web retain the same decision path.
+- A narrow config-only recovery verifies the historical checkpoint-set hash and unchanged Step15 business manifest before restoring authentic checkpoints. It appends exact cause corrections, retains a Stage10 obligation, and preserves skipped/indeterminate review receipts; it never creates a success receipt or quality override.
+- Native runs can constrain source Steps and pause before executing a selected Step outside that scope, including after semantic reopening.
+- Validation: 128 focused recovery, scheduler, dirty/finalization, judge-packet and native-freeze tests passed, including drift rejection, append-only history, and run-boundary checks.
+
+## 2026-09-11: honor explicit Step13 continuation
+
+- A matching administrator continuation for an existing Step13 verdict now skips repeated packet/model execution, preserves the verdict, and records that final delivery is not authorized. Stage8 closeout respects the validated continuation while retaining unresolved issues.
+- Validation: 16 focused precheck/stage/override tests passed, including unapproved and mismatched cases and Step16 exclusion; git diff --check passed.
+
+## 2026-09-11: isolated Codex judge CLI compatibility
+
+- Replace removed --full-auto in the native isolated judge with explicit workspace-write sandbox and never approval policy; keep model, effort, ephemeral execution, and verdict output unchanged. Codex 0.153.4 rejected the old flag before any review started.
+- Validation: 9 focused Codex/judge tests passed, including the installed CLI parser; git diff --check passed.
+- The dashboard now uses native source Step and last-completed coordinates
+  consistently in task cards, workspace headings and the pipeline. It no longer
+  adds one to the active native Step or labels a running Step 16 as completed;
+  legacy last-completed snapshots retain their existing interpretation.
+
 本文档记录 Paper Factory (Modeling Factory) 的重要更新。
 
 ## [Unreleased]
+
+- 摘要完成检查只统计实际源码中的占位符，忽略 LaTeX 注释中的历史标记，并同时识别裸标记和 AbstractPlaceholder 宏；避免已完整排版的摘要因历史注释被要求重写，实际残留占位符仍阻断后续步骤。
+
+- 最终输入核验支持已实审的历史 Solver 输入版本：原提交回执保持不变，只有与原指纹完全一致的历史原件、明确审阅记录和精确当前版本同时存在时才接受后续修订。历史字节及衔接记录随最终快照和提交包保留；未登记改动继续失败。
+- 标准目录以外的既有输入和支撑文件可使用逐文件、SHA 绑定的显式提交路径声明；声明只能增加所需材料，不能排除产物或授予质量通过，内容冻结和最终实现指纹同时绑定该机制。
+
+- 交付物表格检查复用活动 LaTeX 文档展开接口，识别 literal input/include 中的已有表格；缺失、循环和越界依赖保持失败关闭，字段比例和附件检查规则不变。
+
+- Excel 附件数值追溯使用排序索引定位相邻候选，再以原有舍入及相对容差判断；避免每个单元格线性遍历全部真相数值造成大附件审计超时，不改变原阈值或检查范围。
+
+- 数值来源核验改为分批解析现有 JSON manifest，并使用临时 SQLite 索引逐项核对当前结果，避免大型 Excel 产生双份数值字典导致内存耗尽；保留原有来源/坐标覆盖、校验和、类型区分及论文数值容差，paper audit fingerprint 包含新增核验辅助模块。
 
 ### 新增
 
@@ -901,3 +988,16 @@
 - **废弃**: 即将移除的功能
 
 更多技术细节请参考各版本的 commit 记录。
+
+
+## 2026-09-10 — Linked-project artifact browsing
+
+- Normalize project and artifact paths before building the file list so control-plane symlinks and resolved LaTeX dependencies use the same root.
+- Exclude paths resolving outside the project and deduplicate internal aliases; existing download containment and ACL checks remain active.
+- Five focused regression cases cover linked/relative projects, dependency and PDF listing, outside symlinks, internal aliases and hidden files.
+
+- Fix final-delivery recovery treating its own receipt-bound judge report as a new mathematical edit. Attribute only a report proved by the existing PASS final-acceptance chain to Stage 10, preserve all authored-content dirty guards and immutable history, and record exact prior-cause reclassification within the successful delivery transaction. No classifier contract, verdict, baseline, approval, or submission input is changed.
+
+- Add one explicit final-audit retry for a changed evaluator contract only when all other prior PASS snapshot inputs remain exactly identical. Preserve prior failures and normal resume budgets; record a dedicated CAS event, forbid repeat retries for the same contract, and require a fresh real audit and delivery.
+
+- Preserve exact generated-report cause corrections across dirty-index reconstruction, including an old worker that has already reconstructed that same historical cause. Unrelated unresolved causes remain intact and any index cleanup is recorded by the existing classifier-rebase transaction.
