@@ -16,7 +16,9 @@
 `FACTORY` is the configurable runtime data root. It defaults to the repository
 root for compatibility. `ongoing/`, `complete/`, `papers/`, `logs/`,
 `run_state/`, credentials, and generated project artifacts are runtime data,
-not source packages, and are not moved by the v2 refactor.
+not source packages, and are not moved by the v2 refactor. Generated paper
+artifacts are not shipped by a source clone; provision runtime data separately
+when restoring the showcase or reproducing historical calibration runs.
 
 The root `pyproject.toml` and `uv.lock` own Python dependency resolution.
 `web/backend/requirements.lock` and `cloud/requirements.lock` are hash-locked

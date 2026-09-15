@@ -74,6 +74,8 @@ web/**/*.tar.gz
 *.backup
 
 # Local scratch / one-off test output
+/work/
+/.pytest_cache/
 /fibonacci_results.txt
 
 # Editor and OS files
