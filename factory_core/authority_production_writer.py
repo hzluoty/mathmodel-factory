@@ -1461,6 +1461,15 @@ class AuthorityProductionWriter:
         validate_event_envelope(event)
         validate_receipt_envelope(receipt)
         validate_outbox_message(outbox)
+        if command.command_type.value == "CONFIGURE_SOLVER_POLICY":
+            from .authority_solver_policy import validate_policy_bundle
+
+            if phase3_mutation is not None:
+                raise AuthorityEnvelopePersistenceError("solver policy cannot carry an artifact mutation")
+            try:
+                validate_policy_bundle(command, event, receipt, outbox)
+            except ValueError as exc:
+                raise AuthorityEnvelopePersistenceError(str(exc)) from exc
         workflow_key = _text(workflow_id, "workflow_id")
         idempotency = _text(idempotency_key, "idempotency_key")
         now = _nonnegative(occurred_at, "occurred_at")

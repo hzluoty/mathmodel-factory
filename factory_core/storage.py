@@ -94,6 +94,10 @@ class SQLiteStateStore:
         try:
             with connection:
                 yield connection
+        except sqlite3.IntegrityError as exc:
+            if str(exc) == "AUTHORITY_LEGACY_WRITE_DISABLED":
+                raise InvalidTransition("Authority owns this database; legacy state writes are disabled") from exc
+            raise
         finally:
             connection.close()
 
