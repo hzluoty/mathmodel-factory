@@ -4,6 +4,7 @@ import { createProjectStore } from '../src/composables/useProjects.js'
 import { normalizeProjectStatus } from '../src/lib/contracts.js'
 import { stepText, currentStepIndex, projectProgress, workflowStepState, primaryControl } from '../src/lib/projectState.js'
 import { statusLabel } from '../src/lib/status.js'
+import { projectStepIndex } from '../src/lib/steps.js'
 import { buildWorkspaceActions } from '../src/lib/workspaceUi.js'
 
 const project = (values = {}) => normalizeProjectStatus({ base_name: 'fixture', status: 'running', execution_state: 'running',
@@ -72,4 +73,16 @@ test('new status labels and diagnostic fields survive normalization', () => {
 })
 test('legacy completed-checkpoint cursor remains supported', () => {
   assert.equal(currentStepIndex(normalizeProjectStatus({ current_step: 3, status: 'ready' })), 4)
+})
+
+test('native Stage without an active subtask points past the completed Step', () => {
+  for (const status of ['ready', 'paused', 'interrupted']) {
+    const p = project({ scheduler_generation: 'stage_v1', source_step_id: null,
+      active_subtask: null, current_step: 5, last_completed_step: 5,
+      status, execution_state: status })
+    assert.equal(currentStepIndex(p), 6)
+    assert.equal(projectStepIndex(p), 6)
+    assert.equal(workflowStepState(5, p), 'done')
+    assert.match(stepText(p), /^Step 6 /)
+  }
 })

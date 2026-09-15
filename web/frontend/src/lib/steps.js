@@ -96,7 +96,7 @@ export function projectStepIndex(project = {}) {
   if (project.status === 'completed') return 16
   if (hasNativeStepCursor(project) && project.active_subtask === 'reviewer_entry_gate') return 8.5
   const raw = hasNativeStepCursor(project)
-    ? (project.source_step_id ?? project.current_step ?? 0)
+    ? (project.source_step_id ?? (project.last_completed_step != null ? Number(project.last_completed_step) + 1 : project.current_step) ?? 0)
     : Number(project.current_step ?? -1) + 1
   const index = Number(raw)
   return Number.isFinite(index) ? Math.min(16, Math.max(0, index)) : 0

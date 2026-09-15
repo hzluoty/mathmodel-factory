@@ -5,6 +5,7 @@
 - Reject every unreviewed solver receipt identity even when another version of the same path is included.
 - Include hash-verified complete role-local text assets in HTTP review prompts; reject unsupported opaque assets and unsafe role directory links.
 - Require openpyxl at runtime and reject workbook verification when the dependency is unavailable.
+- Display the next Step after a completed checkpoint when a native Stage has no active subtask; preserve explicit active Step identities.
 
 - 2026-09-15: Removed superseded June organization/optimization reports and their old
   optimization changelog, historical Web
