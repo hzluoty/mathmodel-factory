@@ -27,7 +27,7 @@ from .stages import (
     initial_stage_checkpoints,
 )
 from .workflow_events import ENVELOPE_KEY, build_event_payload, canonical_hash
-
+from .native_write_fence import native_write_error_boundary
 
 _UNSET = object()
 
@@ -92,12 +92,8 @@ class SQLiteStateStore:
     def _session(self):
         connection = self._connect()
         try:
-            with connection:
+            with native_write_error_boundary(), connection:
                 yield connection
-        except sqlite3.IntegrityError as exc:
-            if str(exc) == "AUTHORITY_LEGACY_WRITE_DISABLED":
-                raise InvalidTransition("Authority owns this database; legacy state writes are disabled") from exc
-            raise
         finally:
             connection.close()
 

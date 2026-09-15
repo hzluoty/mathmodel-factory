@@ -1,4 +1,23 @@
-"""Exact additive trigger contract; independent of Authority runtime imports."""
+"""Native write guards and errors; independent of Authority runtime imports."""
+
+from contextlib import contextmanager
+import sqlite3
+
+from .domain import InvalidTransition
+
+
+@contextmanager
+def native_write_error_boundary():
+    """Translate the guard error after the enclosed transaction rolls back."""
+    try:
+        yield
+    except sqlite3.IntegrityError as exc:
+        if str(exc) == "AUTHORITY_LEGACY_WRITE_DISABLED":
+            raise InvalidTransition(
+                "Authority owns this database; legacy state writes are disabled"
+            ) from exc
+        raise
+
 
 NATIVE_FENCE_TABLES = (
     "contest_policy", "dirty_causes", "dirty_classifier_rebases",
