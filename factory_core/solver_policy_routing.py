@@ -5,6 +5,7 @@ the fenced writer and database triggers enforce it again inside transactions.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -27,7 +28,7 @@ def authority_solver_route(project: Path) -> AuthoritySolverRoute | None:
     database = project / ".factory/state.db"
     if not database.is_file():
         return None
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only=ON")
         connection.execute("BEGIN")
