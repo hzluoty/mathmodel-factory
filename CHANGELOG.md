@@ -7,7 +7,9 @@
 - Removed the one-off documentation archive script and the outdated archive
   upload deployment checklist, which inspected retired paths.
 - Updated documentation references and ignored root `work/` scratch files and
-  `.pytest_cache/`. Runtime data, backups, and existing worktrees are preserved.
+  `.pytest_cache/`. After exact-target confirmation, removed the old runner
+  backup and stopped tracking six generated paper artifacts under `complete/`;
+  their local copies remain available for the showcase and calibration.
 
 - CI uses relative runtime aliases that remain resolvable during sandbox setup;
   explicit source overrides retain precedence over shared test fixture caches.

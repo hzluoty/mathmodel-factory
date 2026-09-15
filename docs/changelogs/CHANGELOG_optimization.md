@@ -72,7 +72,7 @@
 
 **兼容性**: ✅ 向后兼容（脚本调用失败时降级到原逻辑）
 
-**备份**: run_paper.sh.backup
+**历史版本**：旧 runner 备份已移除；需要追溯时使用 Git 历史。
 
 ---
 
@@ -153,7 +153,7 @@ tail -f ongoing/<project>/logs/runner.log | grep -E "quota|early-stop|CONVERGED|
 
 ```bash
 # 恢复run_paper.sh
-cp run_paper.sh.backup run_paper.sh
+# 旧 runner 备份已退役；按当前部署 runbook 选择已验证的版本回滚。
 
 # (可选) 删除新增脚本
 rm scripts/verify_solver.py scripts/verify_number_chain.py \
