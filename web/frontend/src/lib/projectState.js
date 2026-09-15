@@ -33,7 +33,7 @@ export function currentStepIndex(project = {}) {
 export function completedStepIndex(project = {}) {
   if (project.last_completed_step != null) return Number(project.last_completed_step)
   if (executionStatus(project) === 'completed') return 16
-  return project.source_step_id != null ? currentStepIndex(project) - 1 : Number(project.current_step ?? -1)
+  return project.source_step_id != null || project.scheduler_generation ? currentStepIndex(project) - 1 : Number(project.current_step ?? -1)
 }
 export function projectProgress(project = {}) {
   if (executionStatus(project) === 'completed') return 100

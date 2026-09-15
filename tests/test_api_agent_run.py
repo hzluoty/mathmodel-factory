@@ -32,7 +32,7 @@ def test_http_review_inlines_complete_text_asset_without_truncating(tmp_path):
     assert assets[0]['status'] == 'included'
 
 
-@pytest.mark.parametrize('fault', ['tamper', 'missing', 'role_link', 'binary', 'over_budget'])
+@pytest.mark.parametrize('fault', ['tamper', 'missing', 'role_link', 'binary', 'over_budget', 'missing_manifest', 'manifest_array', 'manifest_entry_array'])
 def test_http_review_refuses_unavailable_or_unsupported_complete_assets(tmp_path, fault):
     role, item, _ = _asset_packet(tmp_path, b'x' * (4_000_001 if fault == 'over_budget' else 20))
     if fault == 'tamper':
@@ -46,6 +46,12 @@ def test_http_review_refuses_unavailable_or_unsupported_complete_assets(tmp_path
     elif fault == 'binary':
         item['asset_quote_mode'] = 'descriptor'
         (role / 'manifest.json').write_text(json.dumps({'files': [item]}))
+    elif fault == 'missing_manifest':
+        (role / 'manifest.json').unlink()
+    elif fault == 'manifest_array':
+        (role / 'manifest.json').write_text('[]')
+    elif fault == 'manifest_entry_array':
+        (role / 'manifest.json').write_text('{"files":[[]]}')
     with pytest.raises((ValueError, OSError)):
         api_agent_run.build_effective_prompt(tmp_path, 'Review', ['judge_packets/math/context.txt'], 'judge_outputs/math.md')
 

@@ -477,6 +477,7 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
     evidence: dict[str, Path] = {}
     excluded: dict[str, dict[str, Any]] = {}
     versioned: dict[str, Path] = {}
+    excluded_version_blobs: set[str] = set()
     stale_drifts: dict[str, dict[str, Any]] = {}
     missing_inputs: dict[str, dict[str, Any]] = {}
     current_identities: dict[str, dict[str, Any]] = {}
@@ -559,6 +560,11 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
                 from .solver_input_versions import reviewed_solver_input_version
                 version_paths = reviewed_solver_input_version(project, record, current["sha256"])
                 if version_paths is not None:
+                    if _read_exclusion(project, record) is not None:
+                        # The second member is the verified historical blob.
+                        # Provenance binding/review may be shared; excluded raw
+                        # input bytes must never be added to the delivery set.
+                        excluded_version_blobs.add(version_paths[1].relative_to(project).as_posix())
                     for version_path in version_paths:
                         key = version_path.relative_to(project).as_posix()
                         evidence[key] = version_path
@@ -668,6 +674,9 @@ def solver_declared_input_coverage(project_dir: str | Path) -> SolverInputCovera
         assert authorization is not None
         evidence[authorization.path.relative_to(project).as_posix()] = authorization.path
         authorized_drifts.append(drift.to_dict())
+    for key in excluded_version_blobs:
+        evidence.pop(key, None)
+        versioned.pop(key, None)
     return SolverInputCoverage(
         tuple(included[key] for key in sorted(included)),
         tuple(evidence[key] for key in sorted(evidence)),

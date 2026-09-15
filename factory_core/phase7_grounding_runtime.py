@@ -406,7 +406,8 @@ def _normalized_report(
     }
     seen: set[str] = set()
     for index, raw in enumerate(report["refs"]):
-        ref = _exact_mapping(raw, ref_keys, f"{role}.refs[{index}]")
+        asset_ref = isinstance(raw, dict) and "asset_path" in raw
+        ref = _exact_mapping(raw, ref_keys | ({"asset_path"} if asset_ref else set()), f"{role}.refs[{index}]")
         ref_id = _identifier(ref["ref_id"], f"{role}.refs[{index}].ref_id")
         if ref_id in seen:
             raise Phase7GroundingContractError("grounding ref_id is duplicated")
@@ -423,14 +424,29 @@ def _normalized_report(
         }
         for name in (
             "line_start", "line_end", "source_line_start", "source_line_end",
-            "context_line_start", "context_line_end",
         ):
             item[name] = _positive(ref[name], f"grounding {name}")
+        if asset_ref:
+            asset_path = _plain_text(ref["asset_path"], "grounding asset_path")
+            if (len(asset_path.split("/")) != 2 or not asset_path.startswith("assets/")
+                    or "\\" in asset_path or asset_path.split("/")[1] in {"", ".", ".."}
+                    or ref["context_line_start"] is not None or ref["context_line_end"] is not None):
+                raise Phase7GroundingContractError("grounding asset reference is invalid")
+            manifest = json.loads(manifest_raw) if manifest_raw is not None else {}
+            if not any(entry.get("chunk_id") == item["chunk_id"]
+                       and entry.get("asset_path") == asset_path
+                       and entry.get("asset_quote_mode") == "text"
+                       for entry in manifest.get("files", []) if isinstance(entry, dict)):
+                raise Phase7GroundingContractError("grounding asset is not bound to its manifest")
+            item.update(asset_path=asset_path, context_line_start=None, context_line_end=None)
+        else:
+            for name in ("context_line_start", "context_line_end"):
+                item[name] = _positive(ref[name], f"grounding {name}")
         if (
             item["line_start"] != item["source_line_start"]
             or item["line_end"] != item["source_line_end"]
             or item["line_end"] < item["line_start"]
-            or item["context_line_end"] < item["context_line_start"]
+            or (not asset_ref and item["context_line_end"] < item["context_line_start"])
         ):
             raise Phase7GroundingContractError("grounding line range differs")
         refs.append(item)

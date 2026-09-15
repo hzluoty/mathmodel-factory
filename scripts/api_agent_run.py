@@ -95,7 +95,13 @@ def _inline_context(project: Path, rel_paths: list[str]) -> tuple[str, list[dict
         if role_context:
             from packet_context import _read_role_asset
 
-            manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+            try:
+                manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ValueError("required judge manifest missing or unreadable: " + manifest_label) from exc
+            if (not isinstance(manifest_data, dict) or not isinstance(manifest_data.get("files", []), list)
+                    or any(not isinstance(item, dict) for item in manifest_data.get("files", []))):
+                raise ValueError("required judge manifest has an invalid shape: " + manifest_label)
             for item in manifest_data.get("files", []):
                 if item.get("content_location") != "asset":
                     continue

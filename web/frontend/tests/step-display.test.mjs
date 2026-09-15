@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { projectStepIndex, projectStepName, projectStepStatus } from './src/lib/steps.js'
+import { projectStepIndex, projectStepName, projectStepStatus } from '../src/lib/steps.js'
 const run = {status: 'running', current_step: 4, source_step_id: 4, last_completed_step: 3, scheduler_generation: 'stage_v1', active_subtask: 'model_construction'}
 assert.equal(projectStepIndex(run), 4)
 assert.equal(projectStepName(run), '完整模型构建')

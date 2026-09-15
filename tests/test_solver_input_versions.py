@@ -147,3 +147,25 @@ def test_direct_current_submission_only_supersedes_older_pending_inputs(tmp_path
     else:
         with pytest.raises(ValueError, match='solver input (size|content) drift'):
             solver_declared_input_coverage(tmp_path)
+
+
+def test_excluded_version_retains_provenance_without_exporting_historical_bytes(tmp_path):
+    from factory_core.solver_input_coverage import build_solver_input_exclusion_receipt, write_solver_input_exclusion_receipt
+
+    source, _, _, _, args = fixture(tmp_path)
+    binding = register_solver_input_version(tmp_path, **args)
+    historical = tmp_path / json.loads(binding.read_text())['historical']['path']
+    exclusion = write_solver_input_exclusion_receipt(tmp_path, build_solver_input_exclusion_receipt(
+        relative_path=args['relative_path'], input_sha256=args['input_sha256'],
+        reason='Historical input is licensed and must not be redistributed'))
+    coverage = solver_declared_input_coverage(tmp_path)
+    assert source not in coverage.included_paths
+    assert historical not in coverage.versioned_paths
+    assert historical not in coverage.evidence_paths
+    assert binding in coverage.versioned_paths and exclusion in coverage.evidence_paths
+    (tmp_path / f'{tmp_path.name}_paper.tex').write_text('\\begin{document}ok\\end{document}\n')
+    selected = submission_bundle_paths(tmp_path, require_pdf=False)
+    assert historical not in selected and source not in selected
+    assert binding in selected and exclusion in selected
+    snapshot = build_final_input_manifest(tmp_path)
+    assert historical.relative_to(tmp_path).as_posix() not in {f['path'] for f in snapshot.manifest['files']}

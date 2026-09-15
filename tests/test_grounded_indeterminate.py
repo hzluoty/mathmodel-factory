@@ -23,12 +23,14 @@ def test_grounded_indeterminate_requires_new_evidence(tmp_path,monkeypatch):
     assert metadata['retry_scope']=='new_evidence_required'
 
 
-@pytest.mark.parametrize('failure',['missing','bad_quote','malformed'])
+@pytest.mark.parametrize('failure',['missing','bad_quote','malformed','array','null'])
 def test_invalid_grounding_still_gets_bounded_infrastructure_retry(tmp_path,monkeypatch,failure):
     setup(tmp_path)
     p=tmp_path/'judge_outputs/execution.grounding.json'
     if failure=='missing':p.unlink()
     elif failure=='bad_quote':p.write_text(json.dumps({'valid':False,'errors':['quote not unique']}))
+    elif failure=='array':p.write_text('[]')
+    elif failure=='null':p.write_text('null')
     else:p.write_text('invalid')
     monkeypatch.setattr(validators,'gate2_continuation_override',lambda *a:False)
     valid,_,_,metadata=validators.NativeArtifactValidator(tmp_path,13)._step_13(tmp_path)

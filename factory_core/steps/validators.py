@@ -428,6 +428,8 @@ class NativeArtifactValidator:
         """A valid, grounded evidence-gap verdict is not an infrastructure retry."""
         try:
             aggregate = json.loads((project / "judge_outputs/aggregate.json").read_text())
+            if not isinstance(aggregate, dict):
+                return False
             roles = aggregate.get("roles")
             indeterminate = aggregate.get("indeterminate_roles")
             if (aggregate.get("schema_version") != "judge-aggregate-v3"
@@ -441,7 +443,7 @@ class NativeArtifactValidator:
                 if "error" not in result or result["error"] is not None:
                     return False
                 grounding = json.loads((project / f"judge_outputs/{role}.grounding.json").read_text())
-                if grounding.get("valid") is not True or grounding.get("errors"):
+                if not isinstance(grounding, dict) or grounding.get("valid") is not True or grounding.get("errors"):
                     return False
             return all(by_role[role].get("status") == "INDETERMINATE"
                        and by_role[role].get("verdict") == "INDETERMINATE"

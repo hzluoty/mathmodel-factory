@@ -88,7 +88,8 @@ def iter_manifest_records(path, chunk_size=65536):
             for source in reader.keys():
                 for key in reader.keys():
                     entry = reader.value()
-                    if not isinstance(entry, dict) or "value" not in entry or "checksum" not in entry:
+                    if (not isinstance(entry, dict) or "value" not in entry or "checksum" not in entry
+                            or type(entry["value"]) not in (int, float)):
                         raise ValueError(f"Invalid manifest entry: {source}::{key}")
                     yield source, key, entry
         if not found or reader.peek():

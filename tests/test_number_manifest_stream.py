@@ -32,6 +32,12 @@ def test_invalid_manifest_fails_closed(tmp_path, content):
         list(iter_manifest_records(path, 3))
 
 
+def test_boolean_cannot_reuse_an_integer_manifest_checksum(tmp_path):
+    path = write_manifest(tmp_path, {'a.json': {'x': {**entry(1), 'value': True}}})
+    with pytest.raises(ValueError, match='Invalid manifest entry'):
+        list(iter_manifest_records(path))
+
+
 def test_all_source_keys_checked_despite_equal_numeric_values(tmp_path):
     sources = {"a.json": {"int": entry(1), "float": entry(1.0), "gone": entry(2)}, "deleted.json": {"x": entry(3)}}
     write_manifest(tmp_path, sources)

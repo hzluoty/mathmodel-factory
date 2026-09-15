@@ -30,6 +30,8 @@ def test_missing_workbook_dependency_is_an_error_not_an_empty_success(tmp_path, 
 
 
 def test_json_only_project_does_not_require_workbook_import(tmp_path, monkeypatch):
+    (tmp_path / 'results').mkdir()
+    (tmp_path / 'results/values.json').write_text('{"score":7391}')
     original_import = builtins.__import__
 
     def import_without_openpyxl(name, *args, **kwargs):
@@ -38,4 +40,4 @@ def test_json_only_project_does_not_require_workbook_import(tmp_path, monkeypatc
         return original_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, '__import__', import_without_openpyxl)
-    assert scan_results_directory(tmp_path) == {}
+    assert scan_results_directory(tmp_path)['results/values.json']['score']['value'] == 7391

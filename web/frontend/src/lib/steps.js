@@ -111,7 +111,7 @@ export function projectStepName(project = {}) {
 export function projectStepStatus(index, project, legacyCurrentStep) {
   if (!hasNativeStepCursor(project)) return stepStatus(index, legacyCurrentStep)
   if (project.status === 'completed') return 'done'
-  const completed = Number(project.last_completed_step ?? -1)
+  const completed = Number(project.last_completed_step ?? (projectStepIndex(project) - 1))
   if (index <= completed || (index === 8.5 && Number(project.source_step_id) > 8)) return 'done'
   return index === projectStepIndex(project) ? 'active' : 'pending'
 }
