@@ -486,6 +486,7 @@ def validate_grounding(
 ) -> dict[str, Any]:
     """Filesystem adapter preserving the established CLI/library contract."""
 
+    role_asset_root = manifest_path.parent
     manifest_path = manifest_path.resolve()
     context_path = (context_path or manifest_path.with_name("context.txt")).resolve()
     role_path = role_path.resolve()
@@ -502,7 +503,7 @@ def validate_grounding(
         requested_role=requested_role,
         manifest_label=str(manifest_path),
         context_label=str(context_path),
-        role_asset_loader=lambda relative: _read_role_asset(manifest_path.parent, relative),
+        role_asset_loader=lambda relative: _read_role_asset(role_asset_root, relative),
         asset_loader=lambda relative: read_asset(project, relative),
         pdf_verifier=verify_pdf_source,
         manifest_loader=lambda: _read_bytes(

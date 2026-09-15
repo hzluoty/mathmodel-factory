@@ -118,3 +118,21 @@ def test_role_directory_links_are_rejected_even_with_matching_bytes(tmp_path, mo
     with pytest.raises(GroundingError) as exc:
         _context_sections(context, manifest['files'], root)
     assert exc.value.code == 'ASSET_UNREADABLE'
+
+
+def test_filesystem_grounding_preserves_original_role_directory_boundary(tmp_path, monkeypatch):
+    root, manifest, _ = prepare(tmp_path, monkeypatch)
+    item = manifest['files'][0]
+    output = tmp_path / 'execution.md'
+    output.write_text('VERDICT: PASS\n' + json.dumps({
+        'schema_version': 'judge-hard-role-v2', 'role': 'execution', 'verdict': 'PASS',
+        'evidence': [{'ref_id': 'e1', 'chunk_id': item['chunk_id'],
+                      'quote': 'complete original numerical array'}],
+    }))
+    assert validate_grounding(output, root / 'manifest.json', role='execution')['valid']
+    outside = tmp_path / 'outside-role'
+    root.rename(outside)
+    root.symlink_to(outside, target_is_directory=True)
+    report = validate_grounding(output, root / 'manifest.json', role='execution')
+    assert not report['valid']
+    assert any(error['code'] == 'ASSET_UNREADABLE' for error in report['errors'])
