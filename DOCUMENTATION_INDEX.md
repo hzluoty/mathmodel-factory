@@ -94,12 +94,10 @@
 - [web/USAGE_GUIDE.md](web/USAGE_GUIDE.md)：上传、题目归档与权限使用说明。
 - [web/docs/deployment/DEPLOYMENT.md](web/docs/deployment/DEPLOYMENT.md)：唯一现役生产部署与回滚 runbook。
 - [SOLVER_JOBS_FEATURE.md](SOLVER_JOBS_FEATURE.md)：Solver Jobs API、前端面板、receipt 语义和维护边界。
-- [web/INTERFACE_GUIDE.md](web/INTERFACE_GUIDE.md)：历史界面快照；当前行为以 `web/README.md` 为准。
 - [docs/GCP_SERVICES_INTEGRATION.md](docs/GCP_SERVICES_INTEGRATION.md)：历史 GCP 服务集成设计；当前状态以 Cloud Solver 隔离合同为准。
 - [docs/SECRET_MANAGER_GUIDE.md](docs/SECRET_MANAGER_GUIDE.md)：Secret Manager 配置。
 - [CLOUD_SOLVER_ENABLED.md](CLOUD_SOLVER_ENABLED.md)：Cloud Solver 当前 P0 代码合同、线上隔离状态、硬限制与解除隔离阻断项。
 - [docs/deployment/](docs/deployment/)：历史 Cloud Solver 部署指南与验证记录；不得用于解除当前隔离。
-- [web/docs/](web/docs/)：Web 专题记录；除 `deployment/DEPLOYMENT.md` 外，部署/测试完成报告默认按历史快照阅读。
 
 ## 专题报告与修复记录
 
@@ -114,16 +112,16 @@
 
 ## 历史归档
 
-- [docs/archive/](docs/archive/)：已过期或已完成的组织、优化和清理报告。
+- [docs/archive/](docs/archive/)：仍用于解释合并或审计决定的历史记录；过期的整理、优化和完成报告通过 Git 历史查询。
 - `docs/sessions/`：历史对话与计划原文的本地归档目录，默认被 Git 忽略，不同步到远端。
 
 ## 文档维护规则
 
 - 根目录只保留项目入口、当前契约和兼容性文档。
 - 当前可执行指南放入 `docs/guides/`，部署资料放入 `docs/deployment/`，验证记录放入 `docs/verification/`。
-- 一次性完成报告、已被替代的方案和过期说明移入 `docs/archive/`。
+- 已被现役文档替代的一次性报告和过期说明从工作树移除，历史版本通过 Git 查询；`docs/archive/` 只保留仍有明确用途的决策与审计记录。
 - 历史 Web 报告必须在开头标记“历史快照”并链接到当前使用或部署文档，不得保留可用凭据。
 - 历史会话文本放入 `docs/sessions/`，不要继续堆放在仓库根目录。
-- 不提交日志、密钥、本地环境、生成论文、构建产物或下载的外部资料。
+- 不提交日志、密钥、本地环境、生成论文、构建产物或下载的外部资料；根目录 `work/` 为本地临时工作目录，`.pytest_cache/` 为可再生测试缓存，均由 `.gitignore` 管理。
 
-**最后更新：2026-09-01**
+**最后更新：2026-09-15**

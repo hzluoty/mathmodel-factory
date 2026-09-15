@@ -178,7 +178,7 @@ git checkout scripts/hard_metrics.py
 - [ ] 假阳性率统计（早停误杀）
 
 ### 中期规划（1-2月）
-参见 `docs/optimization_summary_2026-06-13.md` 第5节
+该日期的优化总结已从工作树移除；历史实现细节可通过 Git 历史查询。
 
 ---
 

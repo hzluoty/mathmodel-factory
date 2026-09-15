@@ -1,4 +1,14 @@
 # Changelog
+
+- 2026-09-15: Removed superseded June organization/optimization reports, historical Web
+  deployment/upload/consultation reports, and obsolete interface, screenshot,
+  and quick-start copies. Current Web usage and deployment guides remain the
+  documentation entry points; Git retains the removed documents in history.
+- Removed the one-off documentation archive script and the outdated archive
+  upload deployment checklist, which inspected retired paths.
+- Updated documentation references and ignored root `work/` scratch files and
+  `.pytest_cache/`. Runtime data, backups, and existing worktrees are preserved.
+
 - CI uses relative runtime aliases that remain resolvable during sandbox setup;
   explicit source overrides retain precedence over shared test fixture caches.
 - Formal P0 and audit execution preserve read-only candidate sources, trusted
