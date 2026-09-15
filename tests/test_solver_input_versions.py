@@ -165,7 +165,13 @@ def test_excluded_version_retains_provenance_without_exporting_historical_bytes(
     assert binding in coverage.versioned_paths and exclusion in coverage.evidence_paths
     (tmp_path / f'{tmp_path.name}_paper.tex').write_text('\\begin{document}ok\\end{document}\n')
     selected = submission_bundle_paths(tmp_path, require_pdf=False)
-    assert historical not in selected and source not in selected
-    assert binding in selected and exclusion in selected
+    assert historical not in selected
+    # The exclusion binds the old hash; it does not prohibit a different
+    # current version independently selected by the ordinary bundle rules.
+    assert source in selected
+    review = tmp_path / json.loads(binding.read_text())['review']['path']
+    assert binding in selected and review in selected
     snapshot = build_final_input_manifest(tmp_path)
-    assert historical.relative_to(tmp_path).as_posix() not in {f['path'] for f in snapshot.manifest['files']}
+    snapshot_paths = {f['path'] for f in snapshot.manifest['files']}
+    assert historical.relative_to(tmp_path).as_posix() not in snapshot_paths
+    assert exclusion.relative_to(tmp_path).as_posix() in snapshot_paths

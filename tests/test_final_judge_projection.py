@@ -149,6 +149,26 @@ def test_old_report_receipt_is_anchored_to_published_release(bound):
     assert mod.historical_final_report(project,record['sha256']) is None
 
 
+@pytest.mark.parametrize('field', ['report', 'decision'])
+@pytest.mark.parametrize('value', [None, []])
+def test_non_object_judgment_fields_do_not_crash_delivery_projection(bound, field, value):
+    project, record = bound
+    receipt_path = project / 'judge_outputs/judgment_receipt.json'
+    receipt = json.loads(receipt_path.read_text())
+    if field == 'report':
+        receipt['derived_artifacts']['report'] = value
+    else:
+        receipt['decision'] = value
+    receipt_path.write_text(json.dumps(receipt))
+    assert mod.verified_final_report(project) is None
+    if field == 'report':
+        published_old_report(project)
+        cached = project / '.factory/generated_judge_reports' / record['sha256'] / 'judgment_receipt.json'
+        cached.parent.mkdir(parents=True)
+        cached.write_bytes(receipt_path.read_bytes())
+        assert mod.historical_final_report(project, record['sha256']) is None
+
+
 def test_unpublished_report_cannot_be_preserved_as_published_evidence(bound):
     project,_=bound
     with pytest.raises(InvalidTransition,match='published PASS release'):

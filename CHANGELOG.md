@@ -6,6 +6,10 @@
 - Include hash-verified complete role-local text assets in HTTP review prompts; reject unsupported opaque assets and unsafe role directory links.
 - Require openpyxl at runtime and reject workbook verification when the dependency is unavailable.
 - Display the next Step after a completed checkpoint when a native Stage has no active subtask; preserve explicit active Step identities.
+- Exclude prohibited historical input blobs while retaining their binding/review evidence and version-specific exclusion receipts in the final input snapshot.
+- Preserve validated text-asset locators and source coordinates in Phase 7 grounding normalization.
+- Reject malformed numeric manifests and grounding/delivery receipt objects without confusing them with valid evidence.
+- Run the native Step display regression from the frontend tests directory in CI and keep partial native cursor progress consistent.
 
 - 2026-09-15: Removed superseded June organization/optimization reports and their old
   optimization changelog, historical Web

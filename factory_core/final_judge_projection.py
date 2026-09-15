@@ -59,7 +59,7 @@ def verified_final_report(project):
             'final_acceptance_sha256': _sha(project / 'judge_outputs/final_acceptance_receipt.json'),
             'quality_override': False,
         }
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
 
 
@@ -143,7 +143,7 @@ def historical_final_report(project, report_sha):
         return {'snapshot_id': sid, 'report_sha256': report_sha,
                 'judgment_receipt_sha256': _sha(cached),
                 'published_manifest_sha256': _sha(release / 'delivery_manifest.json')}
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
 
 
