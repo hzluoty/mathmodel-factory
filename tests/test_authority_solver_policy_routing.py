@@ -154,9 +154,46 @@ def test_wrong_durable_writer_never_falls_back_to_native(tmp_path):
 
 def test_authority_configuration_requires_explicit_revision(tmp_path):
     fixture, _, service = setup_route(tmp_path)
-    with pytest.raises(ValueError, match="explicit expected_revision"):
+    with pytest.raises(InvalidTransition, match="explicit expected_revision"):
         configure(service, fixture, revision=None)
     assert query(fixture.database, "SELECT COUNT(*) FROM authority_commands") == [(0,)]
+    assert SQLiteStateStore(fixture.project_dir).load().revision == 1
+
+
+def test_cli_missing_revision_returns_an_actionable_error(tmp_path, monkeypatch, capsys):
+    from factory_core import cli
+
+    fixture, _, _ = setup_route(tmp_path)
+    monkeypatch.setattr(cli, "ROOT", tmp_path)
+    assert cli.main(["solver", "policy", str(fixture.project_dir), "--mode", "local"]) == 1
+    error = capsys.readouterr().err
+    assert error.startswith("ERROR:")
+    assert "read the current solver policy" in error
+    assert "Traceback" not in error
+    assert query(fixture.database, "SELECT COUNT(*) FROM authority_commands") == [(0,)]
+
+
+def test_web_policy_query_supplies_the_authority_revision_for_updates(tmp_path):
+    from types import SimpleNamespace
+    from fastapi import HTTPException
+    from web.backend.cloud_api import project_cloud_config, set_project_cloud_enabled
+
+    fixture, _, _ = setup_route(tmp_path / "ongoing")
+    settings = SimpleNamespace(
+        factory_root=tmp_path, ongoing_dir=tmp_path / "ongoing",
+        complete_dir=tmp_path / "complete", gcp_project_id="test-project",
+        gcp_region="test-region", gcp_solver_service="test-service",
+    )
+    name = fixture.project_dir.name
+    before = project_cloud_config(settings, name)
+    assert before["revision"] == 1
+    after = set_project_cloud_enabled(settings, name, False, expected_revision=before["revision"])
+    assert after["revision"] == 2
+    with pytest.raises(HTTPException) as missing:
+        set_project_cloud_enabled(settings, name, False)
+    assert missing.value.status_code == 409
+    assert "read the current solver policy" in missing.value.detail
+    assert query(fixture.database, "SELECT COUNT(*) FROM authority_commands") == [(1,)]
     assert SQLiteStateStore(fixture.project_dir).load().revision == 1
 
 

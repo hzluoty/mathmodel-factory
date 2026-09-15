@@ -115,7 +115,10 @@ def configure_authority_solver_policy(route, *, mode, threshold_seconds, allowed
     policy = normalize_policy(mode, threshold_seconds, allowed_runtimes)
     workflow = route.workflow
     if expected_revision is None:
-        raise ValueError("Authority solver policy requires an explicit expected_revision")
+        raise InvalidTransition(
+            "Authority solver policy requires an explicit expected_revision; "
+            "read the current solver policy before retrying"
+        )
     revision = expected_revision
     if type(revision) is not int or revision < 1:
         raise ValueError("expected_revision must be a positive integer")
