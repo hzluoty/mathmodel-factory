@@ -146,12 +146,7 @@ class CodexCliBackend(_ProcessModelBackend):
             argv.extend(["--model", effective_model])
         argv.extend(["-c", f'model_reasoning_effort="{request.effort or "xhigh"}"'])
         if request.isolated:
-            argv.extend(
-                [
-                    "--approve-for-me",
-                    "--ephemeral",
-                ]
-            )
+            argv.extend(["--sandbox", "workspace-write", "-c", 'approval_policy="never"', "--ephemeral"])
             if request.final_response_file is not None:
                 argv.extend(["--output-last-message", str(request.final_response_file)])
         else:

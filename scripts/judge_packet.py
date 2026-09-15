@@ -73,6 +73,101 @@ MAX_FILE_BYTES = 55_000
 PACKET_VERSION = 6
 DOCUMENT_CONTEXT_BYTES = 2_000_000
 COMPLETENESS_CONTRACT_VERSION = "judge-packet-completeness-v1"
+SUPPLEMENT_CONFIG = "judge_evidence.json"
+
+
+def _supplement(project: Path, role: str) -> tuple[int, list[str]]:
+    """Add explicitly hash-bound evidence without weakening default requirements."""
+    default = EXECUTION_CONTEXT_BYTES if role == "execution" else MAX_CONTEXT_BYTES
+    config = project / SUPPLEMENT_CONFIG
+    if not config.exists() and not config.is_symlink():
+        return default, []
+    from factory_core.solver_input_coverage import _regular_project_file
+
+    config = _regular_project_file(project, SUPPLEMENT_CONFIG, label="judge evidence config")
+    value = json.loads(config.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema_version") != "judge-evidence-v1":
+        raise ValueError("unsupported judge evidence config")
+    roles = value.get("roles")
+    if not isinstance(roles, dict) or set(roles) - {"paper", "math", "execution"}:
+        raise ValueError("invalid judge evidence roles")
+    spec = roles.get(role, {})
+    if not isinstance(spec, dict) or set(spec) - {"context_bytes", "required_files", "required_assets", "asset_max_file_bytes", "asset_total_bytes"}:
+        raise ValueError("invalid judge evidence role declaration")
+    _asset_limits(spec)
+    limit = spec.get("context_bytes", default)
+    if type(limit) is not int or not default <= limit <= 2_000_000:
+        raise ValueError("judge evidence context budget outside supported bounds")
+    records = spec.get("required_files", [])
+    if not isinstance(records, list):
+        raise ValueError("judge evidence required_files must be a list")
+    paths = [SUPPLEMENT_CONFIG]
+    for record in records:
+        if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+            raise ValueError("invalid judge evidence file record")
+        relative = record["path"]
+        if not isinstance(relative, str) or relative in paths:
+            raise ValueError("invalid or duplicate judge evidence path")
+        path = _regular_project_file(project, relative, label="judge evidence file")
+        if path.suffix.lower() not in TEXT_SUFFIXES or path.name in SELF_AUTHORED_STATUS:
+            raise ValueError("judge evidence must be source text, not a verdict")
+        if _sha256(path) != record["sha256"]:
+            raise ValueError(f"judge evidence hash drift: {relative}")
+        paths.append(relative)
+    return limit, paths
+
+
+def _asset_limits(spec: dict) -> tuple[int, int]:
+    """Keep legacy defaults; allow explicitly bounded larger evidence packets."""
+    per_file = spec.get("asset_max_file_bytes", 256_000_000)
+    total = spec.get("asset_total_bytes", 512_000_000)
+    if (type(per_file) is not int or type(total) is not int
+            or not 0 < per_file <= 512_000_000
+            or not per_file <= total <= 2_000_000_000):
+        raise ValueError("judge evidence asset budget outside supported bounds")
+    return per_file, total
+
+
+def _asset_supplement(project: Path, role: str) -> dict[str, dict]:
+    """Large evidence is copied into the role packet without prompt truncation."""
+    config = project / SUPPLEMENT_CONFIG
+    if not config.exists():
+        return {}
+    # The ordinary supplement parser validates the config and role structure.
+    _supplement(project, role)
+    value = json.loads(config.read_text(encoding="utf-8"))
+    spec = value["roles"].get(role, {})
+    max_file_bytes, max_total_bytes = _asset_limits(spec)
+    records = spec.get("required_assets", [])
+    if not isinstance(records, list):
+        raise ValueError("judge evidence required_assets must be a list")
+    from factory_core.solver_input_coverage import _regular_project_file
+
+    assets: dict[str, dict] = {}
+    total = 0
+    for record in records:
+        if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+            raise ValueError("invalid judge evidence asset record")
+        relative = record["path"]
+        if not isinstance(relative, str) or relative in assets:
+            raise ValueError("invalid or duplicate judge evidence asset")
+        if relative.startswith(("judge_outputs/", "judge_packets/", "tmp/native_judges/", ".factory/audits/")):
+            raise ValueError("judge assets cannot include judge outputs or audit status")
+        path = _regular_project_file(project, relative, label="judge evidence asset")
+        if path.name in SELF_AUTHORED_STATUS or path.suffix.lower() not in TEXT_SUFFIXES | {".npz", ".npy", ".xlsx", ".pdf", ".zip"}:
+            raise ValueError("judge asset must be source evidence, not a verdict")
+        digest = _sha256(path)
+        if digest != record["sha256"]:
+            raise ValueError(f"judge asset hash drift: {relative}")
+        size = path.stat().st_size
+        total += size
+        if size > max_file_bytes or total > max_total_bytes:
+            raise ValueError("judge evidence assets exceed supported byte limit")
+        name = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:16]
+        assets[relative] = {"asset_path": f"assets/{name}-{digest}{path.suffix.lower()}",
+                            "asset_sha256": digest, "asset_size": size,
+                            "asset_quote_mode": "text" if path.suffix.lower() in TEXT_SUFFIXES else "descriptor"}
+    return assets
 
 
 def _sha256(path: Path) -> str:
@@ -548,7 +643,8 @@ def _render_context(
         for relative in requirement["paths"]:
             normalized = str(relative)
             critical_for.setdefault(normalized, []).append(str(requirement["id"]))
-    context_limit = EXECUTION_CONTEXT_BYTES if role == "execution" else MAX_CONTEXT_BYTES
+    context_limit, _ = _supplement(project, role)
+    supplemental_assets = _asset_supplement(project, role)
     paths = sorted(
         paths,
         key=lambda path: path.relative_to(project).as_posix() not in critical_for,
@@ -559,6 +655,29 @@ def _render_context(
         resolved, omission_reason = _resolve_project_file(project, path)
         if resolved is None:
             item.update({"status": "omitted", "reason": omission_reason})
+            files.append(item)
+            continue
+        item.update({
+            "sha256": _sha256(resolved),
+            "size": resolved.stat().st_size,
+        })
+        if relative in supplemental_assets:
+            asset = supplemental_assets[relative]
+            if asset["asset_quote_mode"] == "text":
+                text = resolved.read_bytes().decode("utf-8")
+            else:
+                text = json.dumps({"source_path": relative, **asset}, ensure_ascii=False, sort_keys=True)
+            included_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            item.update({**asset, "content_location": "asset", "status": "included",
+                         "included_bytes": len(text.encode("utf-8")), "included_sha256": included_hash,
+                         "chunk_id": hashlib.sha256(f"{role}\0{relative}\0{included_hash}".encode()).hexdigest(),
+                         "source_line_start": 1, "source_line_end": max(1, len(text.splitlines()))})
+            if asset["asset_quote_mode"] == "descriptor":
+                framed = f"\n----- FILE: {relative} -----\n{text}\n"
+                if used + len(framed.encode()) > context_limit:
+                    raise ValueError("binary asset descriptors exceed context budget")
+                chunks.append(framed)
+                used += len(framed.encode())
             files.append(item)
             continue
         item["size"] = resolved.stat().st_size
@@ -774,7 +893,7 @@ def _manifest(
     objective_evidence: Path | None = None,
     submission_bundle: dict[str, object] | None = None,
 ) -> dict:
-    context_limit = EXECUTION_CONTEXT_BYTES if role == "execution" else MAX_CONTEXT_BYTES
+    context_limit, _ = _supplement(project, role)
     status_counts = {
         status: sum(item["status"] == status for item in files)
         for status in ("included", "alias", "truncated", "omitted")
@@ -862,6 +981,23 @@ def packet_payloads(
     result: dict[str, dict] = {}
     for role, paths in selected.items():
         requirements = _role_requirements(project, role, paths, base_name, registry)
+        _, supplementary = _supplement(project, role)
+        if supplementary:
+            known = {_relative(project, path) for path in paths}
+            paths.extend(project / relative for relative in supplementary if relative not in known)
+            requirements.append({
+                "id": "explicit_supplementary_evidence",
+                "description": "complete hash-bound supplementary source evidence",
+                "required_status": "included",
+                "paths": supplementary,
+            })
+        supplemental_assets = _asset_supplement(project, role)
+        if supplemental_assets:
+            known = {_relative(project, path) for path in paths}
+            paths.extend(project / relative for relative in supplemental_assets if relative not in known)
+            requirements.append({"id": "complete_role_local_assets",
+                                 "description": "complete SHA-bound role-local source assets",
+                                 "required_status": "included", "paths": list(supplemental_assets)})
         if role == "execution":
             requirements.extend(solver_requirements)
         applicable = {claim["id"] for claim in registry.get("claims", [])
@@ -926,7 +1062,7 @@ def build_packets(
     payloads = packet_payloads(project, base_name, objective_evidence)
     result: dict[str, dict] = {}
     for role, payload in payloads.items():
-        for relative, data in payload["assets"].items():
+        for relative, data in payload.get("assets", {}).items():
             destination = project / relative
             if not destination.resolve().is_relative_to(project) or destination.is_symlink():
                 raise ValueError("packet asset escapes project")
@@ -937,9 +1073,28 @@ def build_packets(
             temporary.write_bytes(data)
             temporary.replace(destination)
         packet_dir = project / "judge_packets" / role
+        if (project / "judge_packets").is_symlink() or packet_dir.is_symlink():
+            raise ValueError("judge packet directory cannot be a symlink")
         packet_dir.mkdir(parents=True, exist_ok=True)
         context = str(payload["context"])
         manifest = payload["manifest"]
+        for item in manifest["files"]:
+            if item.get("content_location") != "asset":
+                continue
+            source = project / item["path"]
+            destination = packet_dir / item["asset_path"]
+            destination.parent.mkdir(exist_ok=True)
+            if destination.parent.is_symlink() or destination.is_symlink():
+                raise ValueError("judge asset destination cannot traverse a symlink")
+            data = source.read_bytes()
+            if len(data) != item["asset_size"] or hashlib.sha256(data).hexdigest() != item["asset_sha256"]:
+                raise ValueError("judge asset changed while building packet")
+            if destination.exists():
+                if _sha256(destination) != item["asset_sha256"]:
+                    raise ValueError("existing judge asset is corrupted")
+            else:
+                with destination.open("xb") as handle:
+                    handle.write(data)
         _atomic_write(
             packet_dir / "manifest.json",
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",

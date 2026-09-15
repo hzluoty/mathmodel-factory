@@ -248,6 +248,11 @@ def _decision_fingerprints_with_metadata(
             )
         )
     elif gate == "content_freeze":
+        from .submission_routes import declared_submission_routes
+
+        routes = declared_submission_routes(project)
+        subject_paths.update(routes.files)
+        subject_paths.update(routes.evidence)
         dependency_graph = require_safe_latex_dependencies(project)
         subject_paths.update(dependency_graph.files)
         subject_metadata.append(

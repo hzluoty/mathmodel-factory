@@ -353,6 +353,10 @@ cylp==0.94.0 \
     --hash=sha256:d1c4f1ac01d8c7dceb9179054db89813aac3d3281b3bdb5924c510a9feeda345 \
     --hash=sha256:e48c29e4c7850c70210a3c8ae346958195670d0d8d08222ab8bb5d7da2733307
     # via modeling-factory
+et-xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa \
+    --hash=sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54
+    # via openpyxl
 fastapi==0.138.1 \
     --hash=sha256:96e3702dce09ee0dce48856135620d3d865ca684a79fe7513fd7b13a12f82862 \
     --hash=sha256:b994cae7ba8b82c976a728b544244de31333fa5f7d261f9a1dffe526444cae23
@@ -796,6 +800,10 @@ numpy==2.5.1 ; python_full_version >= '3.12' \
     #   pandas
     #   pyscipopt
     #   scipy
+openpyxl==3.1.5 \
+    --hash=sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2 \
+    --hash=sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050
+    # via modeling-factory
 packaging==26.2 \
     --hash=sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e \
     --hash=sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661

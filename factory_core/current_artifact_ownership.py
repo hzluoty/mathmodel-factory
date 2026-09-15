@@ -14,6 +14,8 @@ from .artifact_ownership import (
 
 ARTIFACT_OWNERSHIP_SCHEMA = "factory-native-artifact-ownership-v3"
 ADDITIONAL_OWNERSHIP = (
+    ArtifactOwnership("models/reporting_scope/scope_review_manifest.json", 10, "reporting_scope_review", "FORMAT_DIRTY"),
+    ArtifactOwnership("judge_evidence.json", 10, "final_audit_evidence", "FORMAT_DIRTY"),
     # Receipt-validated coverage includes exact initial versions individually.
     ArtifactOwnership(
         ".factory/solver_inputs/**", 4, "solver_input_snapshot", "RESULT_DIRTY",
@@ -26,7 +28,7 @@ ARTIFACT_OWNERSHIP_REGISTRY = FROZEN_REGISTRY + ADDITIONAL_OWNERSHIP
 
 
 def artifact_ownership(path):
-    return next((rule for rule in ARTIFACT_OWNERSHIP_REGISTRY
+    return next((rule for rule in ADDITIONAL_OWNERSHIP + FROZEN_REGISTRY
                  if artifact_pattern_matches(rule.pattern, path)), None)
 
 

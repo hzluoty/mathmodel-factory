@@ -8,6 +8,54 @@ import pytest
 from scripts import api_agent_run
 
 
+def _asset_packet(project, data=b'COMPLETE_REQUIRED_ASSET\r\n' * 12000):
+    role = project / 'judge_packets/math'
+    (role / 'assets').mkdir(parents=True)
+    (role / 'assets/source.txt').write_bytes(data)
+    item = {'path': 'source.txt', 'content_location': 'asset',
+            'asset_path': 'assets/source.txt', 'asset_quote_mode': 'text',
+            'asset_size': len(data), 'asset_sha256': hashlib.sha256(data).hexdigest(),
+            'included_bytes': len(data), 'included_sha256': hashlib.sha256(data).hexdigest()}
+    (role / 'manifest.json').write_text(json.dumps({'files': [item]}))
+    (role / 'context.txt').write_text('Read the complete manifest-bound text asset.')
+    return role, item, data
+
+
+def test_http_review_inlines_complete_text_asset_without_truncating(tmp_path):
+    _, _, data = _asset_packet(tmp_path)
+    prompt, records = api_agent_run.build_effective_prompt(
+        tmp_path, 'Review', ['judge_packets/math/context.txt', 'judge_packets/math/manifest.json'], 'judge_outputs/math.md')
+    assert data.decode('utf-8') in prompt
+    assets = [r for r in records if '/assets/' in r['path']]
+    assert len(assets) == 1
+    assert assets[0]['inlined_sha256'] == hashlib.sha256(data).hexdigest()
+    assert assets[0]['status'] == 'included'
+
+
+@pytest.mark.parametrize('fault', ['tamper', 'missing', 'role_link', 'binary', 'over_budget', 'missing_manifest', 'manifest_array', 'manifest_entry_array'])
+def test_http_review_refuses_unavailable_or_unsupported_complete_assets(tmp_path, fault):
+    role, item, _ = _asset_packet(tmp_path, b'x' * (4_000_001 if fault == 'over_budget' else 20))
+    if fault == 'tamper':
+        (role / item['asset_path']).write_bytes(b'changed')
+    elif fault == 'missing':
+        (role / item['asset_path']).unlink()
+    elif fault == 'role_link':
+        outside = tmp_path / 'outside-role'
+        role.rename(outside)
+        role.symlink_to(outside, target_is_directory=True)
+    elif fault == 'binary':
+        item['asset_quote_mode'] = 'descriptor'
+        (role / 'manifest.json').write_text(json.dumps({'files': [item]}))
+    elif fault == 'missing_manifest':
+        (role / 'manifest.json').unlink()
+    elif fault == 'manifest_array':
+        (role / 'manifest.json').write_text('[]')
+    elif fault == 'manifest_entry_array':
+        (role / 'manifest.json').write_text('{"files":[[]]}')
+    with pytest.raises((ValueError, OSError)):
+        api_agent_run.build_effective_prompt(tmp_path, 'Review', ['judge_packets/math/context.txt'], 'judge_outputs/math.md')
+
+
 def _args(**overrides):
     values = {
         "model": "deepseek-chat",

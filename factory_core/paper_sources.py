@@ -283,6 +283,11 @@ def _mask_comments(text: str) -> str:
     )
 
 
+def count_abstract_placeholders(text: str) -> int:
+    """Count unresolved abstract tokens outside LaTeX comments."""
+    return len(re.findall(r"ABSTRACT_PLACEHOLDER|\\AbstractPlaceholder\b", _mask_comments(text)))
+
+
 def _mask_inactive_regions(text: str) -> str:
     """Mask common non-executed/code-example regions without moving offsets."""
 

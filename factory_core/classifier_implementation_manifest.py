@@ -39,25 +39,24 @@ class ClassifierOperationalImplementationManifestV1:
 
 TRUSTED_DIRTY_CLASSIFIER_OPERATIONAL_MEMBERS_V1 = (
     ClassifierOperationalSourceMemberV1(
-        relative_path="factory_core/artifact_ownership.py",
+        relative_path='factory_core/artifact_ownership.py',
         byte_size=15825,
-        sha256="9f2671f5efc2854e02581d6e621b4caf5071c307660076027c5bce90eb5e5c55",
-        role="ordered ownership registry and matcher implementation",
+        sha256='9f2671f5efc2854e02581d6e621b4caf5071c307660076027c5bce90eb5e5c55',
+        role='ordered ownership registry and matcher implementation',
     ),
     ClassifierOperationalSourceMemberV1(
-        relative_path="factory_core/dirty.py",
+        relative_path='factory_core/dirty.py',
         byte_size=15447,
-        sha256="256770269ec2a4ec4344e67b04b59b2f6c8e50ffac66da92e4932ad9c487c8a5",
-        role="manifest capture and pure dirty classification implementation",
+        sha256='256770269ec2a4ec4344e67b04b59b2f6c8e50ffac66da92e4932ad9c487c8a5',
+        role='manifest capture and pure dirty classification implementation',
     ),
     ClassifierOperationalSourceMemberV1(
-        relative_path="factory_core/paper_sources.py",
-        byte_size=30115,
-        sha256="e4594bbb467bacf2183c55f5bbc3aa017e5b38f6ddd330b2ebd0f7c7d1571bc5",
-        role="inactive-LaTeX masking and dependency graph implementation",
+        relative_path='factory_core/paper_sources.py',
+        byte_size=30333,
+        sha256='c221a9ef6844f9cd2af0b33f3b18d2c8bf87e73a6f670e9d413a1f8834cac1fb',
+        role='inactive-LaTeX masking and dependency graph implementation',
     ),
 )
-
 TRUSTED_DIRTY_CLASSIFIER_OPERATIONAL_MANIFEST_V1 = (
     ClassifierOperationalImplementationManifestV1(
         schema_version=DIRTY_CLASSIFIER_IMPLEMENTATION_MANIFEST_SCHEMA,

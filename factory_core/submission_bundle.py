@@ -127,6 +127,11 @@ def submission_bundle_paths(
     resolved_base = base or project.name
     graph = require_safe_latex_dependencies(project, resolved_base)
     selected: set[Path] = set(graph.files)
+    from .submission_routes import declared_submission_routes
+
+    routes = declared_submission_routes(project)
+    selected.update(routes.files)
+    selected.update(routes.evidence)
 
     pdf_candidate = project / f"{resolved_base}_paper.pdf"
     if require_pdf:
@@ -149,6 +154,12 @@ def submission_bundle_paths(
     from .solver_input_coverage import solver_declared_input_coverage
 
     solver_coverage = solver_declared_input_coverage(project)
+    # Historical bytes and their reviewed version bindings accompany the current
+    # input; accepting an old Solver receipt must never discard its exact inputs.
+    for version_path in solver_coverage.versioned_paths:
+        selected.add(
+            _validate_regular_file(project, version_path, label="versioned solver input evidence")
+        )
     active_latex = {path.relative_to(project).as_posix() for path in graph.files}
     declared = declared_delivery_files(project)
     for solver_input in solver_coverage.included_paths:
@@ -157,6 +168,7 @@ def submission_bundle_paths(
             artifact_ownership(relative) is None
             and relative not in active_latex
             and relative not in declared
+            and relative not in routes.roles
         ):
             raise ValueError(
                 "solver-declared input lacks ownership or an explicit route: "
@@ -194,6 +206,9 @@ def submission_bundle_manifest(
 ) -> dict[str, Any]:
     project = Path(project_dir).resolve()
     resolved_base = base or project.name
+    from .submission_routes import declared_submission_routes
+
+    routes = declared_submission_routes(project)
     members = []
     for path in submission_bundle_paths(
         project, resolved_base, require_pdf=require_pdf
@@ -207,10 +222,10 @@ def submission_bundle_manifest(
                 "size": path.stat().st_size,
                 "sha256": _sha256(path),
                 "owner_stage": (
-                    ownership.owner_stage if ownership is not None else None
+                    ownership.owner_stage if ownership is not None else routes.roles.get(relative, {}).get("owner_stage")
                 ),
                 "semantic_domain": (
-                    ownership.semantic_domain if ownership is not None else "unowned"
+                    ownership.semantic_domain if ownership is not None else routes.roles.get(relative, {}).get("semantic_domain", "unowned")
                 ),
             }
         )

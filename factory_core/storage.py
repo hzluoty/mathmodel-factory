@@ -2847,6 +2847,13 @@ class SQLiteStateStore:
                     ),
                 )
             for dirty in dirty_changes or []:
+                if "generated_projection_receipt" in dirty:
+                    from .final_judge_projection import reclassify_recorded_report_cause
+
+                    reclassify_recorded_report_cause(
+                        connection, self.project_dir, dirty, revision=revision,
+                        now=now, checkpoint=stage_checkpoint,
+                    )
                 cause_id = canonical_hash(
                     {
                         "revision": revision,

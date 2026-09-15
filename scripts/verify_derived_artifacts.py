@@ -289,6 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args(argv)
     project = args.project_dir.resolve()
+    manifest: dict[str, Any] | None = None
     try:
         manifest_path = args.manifest
         if manifest_path is None:
@@ -304,7 +305,8 @@ def main(argv: list[str] | None = None) -> int:
             manifest_path = _safe_relative(project, derived.get("manifest"), must_exist=True)
         elif not manifest_path.is_absolute():
             manifest_path = _safe_relative(project, str(manifest_path), must_exist=True)
-        report = verify_manifest(project, _read_json(manifest_path.resolve()))
+        manifest = _read_json(manifest_path.resolve())
+        report = verify_manifest(project, manifest)
     except (DerivedArtifactError, OSError, ValueError) as exc:
         report = {
             "schema": "canonical-derived-verification-v1",
@@ -312,10 +314,22 @@ def main(argv: list[str] | None = None) -> int:
             "failures": ["INVALID_DERIVED_ARTIFACT_CONTRACT"],
             "error": str(exc),
         }
+    # Preserve the complete actual execution evidence in the captured CLI log.
+    # Random temporary paths and arbitrary generator logging are not stable
+    # verification inputs. Neither outcomes nor comparison evidence is removed.
+    print("DERIVED_RUNTIME_REPORT: " + json.dumps(report, ensure_ascii=False))
+    stable_report = {
+        key: value for key, value in report.items()
+        if key not in {"generator_command", "generator_stdout", "generator_stderr"}
+    }
+    stable_report["schema"] = "canonical-derived-verification-v2"
+    stable_report["runtime_trace_channel"] = "stdout:DERIVED_RUNTIME_REPORT"
+    if manifest is not None and isinstance(manifest.get("generator"), dict):
+        stable_report["generator_command_template"] = manifest["generator"].get("argv")
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(
-            json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            json.dumps(stable_report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
     for failure in report.get("failures", []):
         print(f"FAIL: {failure}")

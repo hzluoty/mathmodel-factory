@@ -736,6 +736,7 @@ class IncrementalAuditService:
             selected = [
                 *common,
                 "scripts/verify_numbers.py",
+                "scripts/number_manifest_stream.py",
                 "scripts/verify_symbols.py",
                 "scripts/verify_deliverables.py",
                 "scripts/verify_derived_artifacts.py",

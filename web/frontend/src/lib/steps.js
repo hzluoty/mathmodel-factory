@@ -84,3 +84,34 @@ export const STEP_MODEL_META = {
 export function stepModelMeta(index) {
   return STEP_MODEL_META[index] || STEP_MODEL_META[String(index)] || { overridable: true, apiOk: false, default: '' }
 }
+
+
+// Native current_step/source_step_id already denotes the active Step. Legacy
+// snapshots instead carry the last completed Step. Preserve that distinction.
+export function hasNativeStepCursor(project) {
+  return Boolean(project && (project.scheduler_generation || project.source_step_id != null || project.last_completed_step != null))
+}
+
+export function projectStepIndex(project = {}) {
+  if (project.status === 'completed') return 16
+  if (hasNativeStepCursor(project) && project.active_subtask === 'reviewer_entry_gate') return 8.5
+  const raw = hasNativeStepCursor(project)
+    ? (project.source_step_id ?? (project.last_completed_step != null ? Number(project.last_completed_step) + 1 : project.current_step) ?? 0)
+    : Number(project.current_step ?? -1) + 1
+  const index = Number(raw)
+  return Number.isFinite(index) ? Math.min(16, Math.max(0, index)) : 0
+}
+
+export function projectStepName(project = {}) {
+  if (project.status === 'completed') return '已完成'
+  const index = projectStepIndex(project)
+  return index === 8.5 ? EDITORIAL_GATE_STEP.name : (stepByIndex(index)?.name || '')
+}
+
+export function projectStepStatus(index, project, legacyCurrentStep) {
+  if (!hasNativeStepCursor(project)) return stepStatus(index, legacyCurrentStep)
+  if (project.status === 'completed') return 'done'
+  const completed = Number(project.last_completed_step ?? (projectStepIndex(project) - 1))
+  if (index <= completed || (index === 8.5 && Number(project.source_step_id) > 8)) return 'done'
+  return index === projectStepIndex(project) ? 'active' : 'pending'
+}

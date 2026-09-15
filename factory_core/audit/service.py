@@ -275,6 +275,10 @@ class FinalAuditService:
                     gate2_delivery_override=cached.override,
                 )
                 return AuditOutcome(execution, cached, candidate)
+            # A cache miss proceeds through compilation and fresh acceptance
+            # checks. Their reports may differ from the probe packet, so the
+            # eventual judge snapshot must be prepared again after those checks.
+            packets_prepared = False
 
         if compile_pdf:
             compiled = self.runner.run(

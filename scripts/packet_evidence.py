@@ -79,6 +79,25 @@ class PacketEvidence:
 
     def complete(self, path):
         item = self.resolve(path)
+        if item is not None and item.get("content_location") == "asset":
+            relative = item.get("asset_path")
+            mode = item.get("asset_quote_mode")
+            complete_asset = (
+                item.get("status") == "included"
+                and isinstance(relative, str) and relative.startswith("assets/")
+                and len(relative.split("/")) == 2 and "\\" not in relative
+                and relative.split("/")[1] not in {"", ".", ".."}
+                and type(item.get("size")) is int and item["size"] >= 0
+                and item.get("asset_size") == item["size"]
+                and isinstance(item.get("sha256"), str) and bool(_SHA256.fullmatch(item["sha256"]))
+                and item.get("asset_sha256") == item["sha256"]
+                and isinstance(item.get("included_sha256"), str)
+                and bool(_SHA256.fullmatch(item["included_sha256"]))
+                and type(item.get("included_bytes")) is int and item["included_bytes"] >= 0
+            )
+            if mode == "text":
+                return complete_asset and item["included_sha256"] == item["sha256"] and item["included_bytes"] == item["size"]
+            return complete_asset and mode == "descriptor"
         if item is not None and ("document_review" in item or path.lower().endswith(tuple(DOCUMENT_SUFFIXES))):
             return item.get("status") == "included" and document_complete(item)
         return (item is not None and item.get("status") == "included"
