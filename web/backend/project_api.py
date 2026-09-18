@@ -511,7 +511,8 @@ def list_all_projects(settings: Settings) -> list[ProjectStatus]:
             if project_path.is_dir() and (project_path / "checkpoint.md").is_file():
                 projects.append(
                     _runtime_to_project_status(
-                        read_runtime_status(project_path, project_path.name),
+                        read_runtime_status(
+                            project_path, project_path.name, include_fingerprint=False),
                         project_path,
                     )
                 )

@@ -154,3 +154,38 @@ def test_dead_recorded_worker_is_interrupted_on_cli_web_and_files(tmp_path):
     assert store.load().revision == state.revision
     assert store.load().status is WorkflowStatus.RUNNING
     assert not (project / '.heartbeat').exists()
+
+
+def test_list_status_skips_submission_fingerprint(tmp_path, monkeypatch):
+    from web.backend.config import Settings
+    from web.backend.project_api import list_all_projects
+
+    project = tmp_path / "ongoing" / "demo"
+    project.mkdir(parents=True)
+    (project / "checkpoint.md").write_text("Last completed step: 16\n", encoding="utf-8")
+    store = SQLiteStateStore(project)
+    store.initialize(project_id="demo", project_type="modeling")
+    (project / "judge_outputs").mkdir()
+    (project / "judge_outputs" / "aggregate.json").write_text(
+        '{"verdict":"PASS","overall_score":99,"score_available":true}',
+        encoding="utf-8",
+    )
+
+    def boom(*args, **kwargs):
+        raise AssertionError("list must not compute submission fingerprints")
+
+    monkeypatch.setattr("scripts.submission_fingerprint.submission_fingerprint", boom)
+    settings = Settings(
+        jwt_secret="s" * 32,
+        admin_password="unit-test-password",
+        factory_root=tmp_path,
+    )
+    listed = list_all_projects(settings)
+    assert [item.base_name for item in listed] == ["demo"]
+
+    try:
+        read_runtime_status(project, "demo")
+    except AssertionError as exc:
+        assert "list must not compute submission fingerprints" in str(exc)
+    else:
+        raise AssertionError("detail status should still compute fingerprints")

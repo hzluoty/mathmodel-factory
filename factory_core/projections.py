@@ -174,7 +174,8 @@ AUDIT_FIELDS = (
 )
 
 
-def authoritative_status(project: Path, snapshot: dict | None = None) -> dict:
+def authoritative_status(project: Path, snapshot: dict | None = None, *,
+                         include_fingerprint: bool = True) -> dict:
     from .storage import SQLiteStateStore
     from .workflow_events import project_runtime_diagnostics
     snapshot = snapshot or SQLiteStateStore(project).status_snapshot()
@@ -184,7 +185,8 @@ def authoritative_status(project: Path, snapshot: dict | None = None) -> dict:
     projected = project_runtime_diagnostics(events, state)["status"]
     for key in ("current_action", "reason_code", "reason_summary", "suggested_actions", "evidence"):
         payload[key] = projected[key]
-    payload.update(audit_status_fields(project, state, events))
+    payload.update(audit_status_fields(
+        project, state, events, include_fingerprint=include_fingerprint))
     if payload["execution_state"] != state.status.value:
         payload.update(state=payload["execution_state"], display_status="已中断", pid=None,
                        reason_code="RUNNER_EXIT_UNVERIFIED",
@@ -245,7 +247,8 @@ def read_compatibility_projection(project_dir: str | Path) -> dict | None:
         return None
 
 
-def audit_status_fields(project: Path, state: WorkflowState, events) -> dict:
+def audit_status_fields(project: Path, state: WorkflowState, events, *,
+                        include_fingerprint: bool = True) -> dict:
     """Current execution, evidence, scientific judgment and delivery are separate."""
     events = [event for event in events if event.revision <= state.revision]
     fields = {"execution_state": state.status.value, "recorded_workflow_state": state.status.value,
@@ -280,6 +283,8 @@ def audit_status_fields(project: Path, state: WorkflowState, events) -> dict:
         "final" if aggregate.is_file() else "math_only")
     fields["review_mode"] = mode
     if not (aggregate if mode == "final" else precheck).is_file():
+        return fields
+    if not include_fingerprint:
         return fields
     try:
         from scripts.submission_fingerprint import submission_fingerprint
