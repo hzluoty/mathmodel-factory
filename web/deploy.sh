@@ -73,7 +73,7 @@ preflight() {
         "$PROJECT_ROOT/scripts/load_secrets.sh" \
         "$PROJECT_ROOT/launch_agents.sh" \
         "$PROJECT_ROOT/run_paper.sh" \
-        "$PROJECT_ROOT/factory_core/adapters/legacy_runner.sh" \
+        "$PROJECT_ROOT/launch_agents.sh" \
         "$PROJECT_ROOT/web/backend/start.sh" \
         "$PROJECT_ROOT/web/deploy.sh"; do
         bash -n "$script"

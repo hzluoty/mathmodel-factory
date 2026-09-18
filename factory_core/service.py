@@ -14,7 +14,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from .adapters.legacy import LegacyArtifactValidator, build_legacy_registry
 from .domain import (
     FactoryCoreError,
     InvalidTransition,
@@ -24,7 +23,6 @@ from .domain import (
 )
 from .contest import ContestPolicy
 from .engine import FactoryEngine
-from .migration import LegacyInspector, MigrationReport, apply_migration
 from .human_decisions import validate_resolution
 from .projections import runtime_payload, write_compatibility_projections
 from .steps import build_native_registry
@@ -189,7 +187,6 @@ class FactoryService:
     ) -> None:
         self.root = Path(factory_root).resolve()
         self.code_root = Path(__file__).resolve().parents[1]
-        self.legacy_runner = self.code_root / "factory_core" / "adapters" / "legacy_runner.sh"
         self.worker_launcher = worker_launcher or WorkerLauncher(self.root, self.code_root)
         self._native_registry_factory = native_registry_factory
         self.solver_backends = solver_backends or build_solver_backends(self.code_root)
@@ -212,18 +209,12 @@ class FactoryService:
     def engine(self, project: str | Path) -> FactoryEngine:
         resolved = self.resolve_project(project)
         state = SQLiteStateStore(resolved).load()
-        if state.control_mode == "legacy":
-            registry = build_legacy_registry(self.root, self.legacy_runner)
-        elif state.control_mode != "engine":
-            raise FactoryCoreError(f"unsupported control mode: {state.control_mode}")
-        elif state.runtime_generation == "native_v2":
-            registry = self._native_registry_factory(self.code_root)
-        elif state.runtime_generation == "legacy_adapter":
-            registry = build_legacy_registry(self.root, self.legacy_runner)
-        else:
-            raise FactoryCoreError(
-                f"unsupported runtime generation: {state.runtime_generation}"
+        if state.control_mode != "engine" or state.runtime_generation != "native_v2":
+            raise InvalidTransition(
+                "NATIVE_WORKFLOW_REQUIRED: only native_v2 engine projects are supported; "
+                "historical runtimes are preserved in paper_new"
             )
+        registry = self._native_registry_factory(self.code_root)
         return FactoryEngine(
             resolved,
             registry=registry,
@@ -313,6 +304,7 @@ class FactoryService:
     ) -> WorkerHandle:
         resolved = self.resolve_project(project)
         state = SQLiteStateStore(resolved).load()
+        self._require_stage_runtime(state)
         self._assert_expected_revision(state, expected_revision)
         if state.runner_pid and self._pid_is_live(state.runner_pid):
             raise InvalidTransition(f"project already has live worker {state.runner_pid}")
@@ -381,6 +373,7 @@ class FactoryService:
         ready_file: Path | None = None,
     ) -> WorkflowState:
         engine = self.engine(project)
+        self._require_stage_runtime(engine.store.load())
         if ready_file is not None:
             from .projections import _atomic_text
             _atomic_text(ready_file.with_suffix(".ack"), str(os.getpid()) + "\n")
@@ -691,56 +684,22 @@ class FactoryService:
     def archive(self, project: str | Path) -> WorkflowState:
         return self.engine(project).archive_completed(self.root)
 
-    def inspect_migration(self, project: str | Path) -> MigrationReport:
-        resolved = self.resolve_project(project)
-        validator = LegacyArtifactValidator(self.root, self.legacy_runner)
-        return LegacyInspector(infer_step=validator.infer_step).inspect(resolved)
 
-    def apply_migration(
-        self,
-        project: str | Path,
-        report: MigrationReport,
-        *,
-        expected_digest: str,
-        runtime_generation: str = "native_v2",
-        scheduler_generation: str = STAGE_SCHEDULER_GENERATION,
-    ) -> WorkflowState:
-        resolved = self.resolve_project(project)
-        state = apply_migration(
-            resolved,
-            report,
-            expected_digest=expected_digest,
-            runtime_generation=runtime_generation,
-            scheduler_generation=scheduler_generation,
-        )
-        write_compatibility_projections(resolved, state)
-        return state
+    def rollback_migration(self, project, *, expected_revision=None):
+        raise InvalidTransition("Legacy workflow rollback is retired; use paper_new for historical recovery")
 
-    def rollback_migration(
-        self,
-        project: str | Path,
-        *,
-        expected_revision: int,
-    ) -> WorkflowState:
-        engine = self.engine(project)
-        state = engine.get_state()
-        self._assert_expected_revision(state, expected_revision)
-        stage_history = state.scheduler_generation == STAGE_SCHEDULER_GENERATION or any(
-            event.type in {
-                "STAGE_SCHEDULER_ACTIVATED",
-                "STAGE_SCHEDULER_ROLLED_BACK",
-            }
-            for event in SQLiteStateStore(engine.project_dir).events()
-        )
-        inferred_step = None
-        if not stage_history:
-            inferred_step = LegacyArtifactValidator(
-                self.root, self.legacy_runner
-            ).infer_step(engine.project_dir)
-        return engine.deactivate(
-            expected_revision=expected_revision,
-            legacy_inferred_step=inferred_step,
-        )
+    def rollback_stage_scheduler(self, project, *, expected_revision=None):
+        raise InvalidTransition("Step scheduler rollback is retired; the mainline uses Stage scheduling")
+
+    @staticmethod
+    def _require_stage_runtime(state: WorkflowState) -> None:
+        if state.control_mode != "engine" or state.runtime_generation != "native_v2":
+            raise InvalidTransition("NATIVE_WORKFLOW_REQUIRED: only native_v2 engine projects can run")
+        if state.scheduler_generation != STAGE_SCHEDULER_GENERATION:
+            raise InvalidTransition(
+                "STAGE_SCHEDULER_REQUIRED: explicitly run migrate scheduler-activate "
+                "on a stopped Native project before starting it"
+            )
 
     def activate_stage_scheduler(
         self,
@@ -812,37 +771,6 @@ class FactoryService:
         )
         return updated
 
-    def rollback_stage_scheduler(
-        self,
-        project: str | Path,
-        *,
-        expected_revision: int | None = None,
-    ) -> WorkflowState:
-        resolved = self.resolve_project(project)
-        store = SQLiteStateStore(resolved)
-        state = store.load()
-        self._assert_expected_revision(state, expected_revision)
-        if state.scheduler_generation == STEP_SCHEDULER_GENERATION:
-            return state
-        self.engine(resolved).assert_semantically_clean_for_rollback(state=state)
-        updated = _workflow_coordinator(store).transition(
-            expected_revision=state.revision,
-            event_type="STAGE_SCHEDULER_ROLLED_BACK",
-            changes={
-                "scheduler_generation": STEP_SCHEDULER_GENERATION,
-                "stage_catalog_version": None,
-                "active_stage": None,
-                "active_subtask": None,
-                "source_step_id": state.active_step,
-            },
-            payload={
-                "from_scheduler_generation": STAGE_SCHEDULER_GENERATION,
-                "to_scheduler_generation": STEP_SCHEDULER_GENERATION,
-                "compatibility_step": state.active_step,
-            },
-            subtask_baseline=None,
-        )
-        return updated
 
     def configure_solver_policy(
         self,
@@ -856,14 +784,6 @@ class FactoryService:
         resolved = self.resolve_project(project)
         if mode in {"cloud", "auto"} and self._cloud_quarantined():
             raise InvalidTransition("cloud solver execution is quarantined")
-        from .solver_policy_routing import authority_solver_route, configure_authority_solver_policy
-
-        route = authority_solver_route(resolved)
-        if route is not None:
-            return configure_authority_solver_policy(
-                route, mode=mode, threshold_seconds=threshold_seconds,
-                allowed_runtimes=allowed_runtimes or ["python"], expected_revision=expected_revision,
-            )
         store = SQLiteStateStore(resolved)
         state = store.load()
         revision = state.revision if expected_revision is None else expected_revision
@@ -879,13 +799,7 @@ class FactoryService:
 
     def solver_policy(self, project: str | Path) -> dict[str, Any]:
         resolved = self.resolve_project(project)
-        from .solver_policy_routing import authority_solver_route, read_authority_solver_policy
-
-        route = authority_solver_route(resolved)
-        if route is not None:
-            policy = read_authority_solver_policy(route)
-        else:
-            policy = SQLiteStateStore(resolved).solver_policy()
+        policy = SQLiteStateStore(resolved).solver_policy()
         return {
             **policy,
             "quarantined": self._cloud_quarantined(),
@@ -904,8 +818,10 @@ class FactoryService:
         output_paths: tuple[str | Path, ...] = (),
         seeds: tuple[str | int, ...] = (),
         expected_revision: int | None = None,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         resolved = self.resolve_project(project)
+        self._require_stage_runtime(SQLiteStateStore(resolved).load())
         script_path = Path(script)
         if not script_path.is_absolute():
             script_path = (Path.cwd() / script_path).resolve()
@@ -926,6 +842,10 @@ class FactoryService:
         backend_name = self._solver_backend_for(policy, runtime, max_time_seconds)
         backend = self.solver_backends.get(backend_name)
         state = store.load()
+        if dry_run:
+            self._assert_expected_revision(state, expected_revision)
+            return {"dry_run": True, "backend": backend_name, "runtime": runtime,
+                    "script": str(script_path), "max_time_seconds": max_time_seconds}
         revision = state.revision if expected_revision is None else expected_revision
         idempotency_key = self._solver_idempotency_key(
             resolved,

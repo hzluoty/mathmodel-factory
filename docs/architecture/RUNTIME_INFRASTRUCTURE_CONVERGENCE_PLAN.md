@@ -1,5 +1,7 @@
 # 横向运行时基础设施收敛方案
 
+> Historical design snapshot: Legacy/Authority/Phase paths and rollback procedures described below are retired from this mainline as of 2026-09-16. Current execution and separation boundaries: [NATIVE_MAINLINE.md](NATIVE_MAINLINE.md). Stage mappings and evidence contracts remain implemented unless explicitly superseded there.
+
 > 状态：**schema-v9、事件、Pipeline、Human Decision 与 Job 核心合同已实现；应用 writer 唯一性尚未实现，运营验收待完成；R5 Capability/Profile 延后**
 > （2026-08-16）。
 >

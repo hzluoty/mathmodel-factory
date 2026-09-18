@@ -27,7 +27,7 @@ def publish_current_audit(
 ):
     project = project.resolve()
     root = root.resolve()
-    from factory_core.phase9_delivery_fence import (
+    from factory_core.native_boundary import (
         require_delivery_side_effect_authority,
     )
 

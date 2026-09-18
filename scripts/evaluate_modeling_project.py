@@ -438,10 +438,10 @@ def evaluate(project: Path, root: Path) -> Evaluation:
     project_pdfs = discover_paper_pdfs(project, base)
     paper_pdf = project_pdfs[0] if project_pdfs else project / f"{base}_paper.pdf"
     from factory_core.delivery.release import resolve_current_release
-    from factory_core.phase9_delivery_fence import legacy_delivery_projection_allowed
+    from factory_core.native_boundary import native_delivery_projection_allowed
 
     release = resolve_current_release(root / "papers", base, project=project)
-    legacy_projection = legacy_delivery_projection_allowed(project)
+    legacy_projection = native_delivery_projection_allowed(project)
     unavailable_release = (
         root / "papers"
         if legacy_projection

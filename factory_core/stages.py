@@ -198,21 +198,7 @@ GATE_POLICIES: tuple[GatePolicy, ...] = (
         binding="active_stage_or_stage_1_fallback",
         projects_pending_action=False,
     ),
-    GatePolicy(
-        gate="legacy_dynamic",
-        stage_id=None,
-        subtask_key=None,
-        source_step_id=None,
-        kind="legacy_human_consultation_family",
-        authority="legacy_adapter",
-        condition="legacy_.awaiting_consultation_marker_contains_arbitrary_gate_name",
-        producer="factory_core.adapters.legacy.LegacyArtifactValidator.validate",
-        binding="legacy_marker_runtime_value",
-        gate_family="legacy_arbitrary",
-        source_expression=r"GATE:([^\s]+)",
-        compatibility_diagnostic="UNANALYZABLE",
-        projects_pending_action=False,
-    ),
+
 )
 
 

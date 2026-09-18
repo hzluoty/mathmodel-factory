@@ -197,8 +197,8 @@ def make_evaluator_factory(root: Path) -> None:
         "factory_core/audit/domain.py",
         "factory_core/audit/service.py",
         "factory_core/audit/acceptance.py",
-        "factory_core/adapters/legacy.py",
-        "factory_core/adapters/legacy_runner.sh",
+        "factory_core/native_boundary.py",
+        "factory_core/state_lease.py",
         "factory_core/steps/catalog.py",
         "factory_core/steps/specialized.py",
         "factory_core/steps/validators.py",
@@ -242,7 +242,7 @@ def test_evaluator_contract_records_prompt_implementation_and_registry_selection
     assert contract["implementation"]["scripts/aggregate_judges.py"]["sha256"]
     assert contract["implementation"]["factory_core/engine.py"]["sha256"]
     assert contract["implementation"]["factory_core/audit/service.py"]["sha256"]
-    assert contract["implementation"]["factory_core/adapters/legacy_runner.sh"]["sha256"]
+    assert contract["implementation"]["factory_core/state_lease.py"]["sha256"]
     dispatch = contract["model_dispatch"]
     assert dispatch["selection_source"] == "model_config"
     assert dispatch["selection"]["primary_id"] == "judge-a"
@@ -262,7 +262,7 @@ def test_evaluator_contract_records_prompt_implementation_and_registry_selection
         "factory_core/audit/service.py",
         "factory_core/audit/acceptance.py",
         "factory_core/steps/specialized.py",
-        "factory_core/adapters/legacy.py",
+        "factory_core/native_boundary.py",
         "web/model_config.json",
         "web/model_registry.json",
         "scripts/verify_numbers.py",

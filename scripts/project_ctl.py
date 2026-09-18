@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """Compatibility CLI for project lifecycle control.
 
-Engine-owned projects call FactoryService directly. Projects without an
-authoritative SQLite state are routed explicitly to the frozen legacy adapter.
+Native projects call FactoryService directly. Historical projects remain
+read-only and are never routed to an alternate execution engine.
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import sys
-from functools import lru_cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,17 +20,6 @@ if str(ROOT) not in sys.path:
 from factory_core.domain import FactoryCoreError
 from factory_core.service import FactoryService
 from factory_core.storage import SQLiteStateStore
-
-
-@lru_cache(maxsize=1)
-def _legacy():
-    path = ROOT / "legacy" / "shell" / "project_ctl_legacy.py"
-    spec = importlib.util.spec_from_file_location("factory_project_ctl_legacy", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load legacy project control adapter: {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def _engine_owned(project: Path) -> bool:
@@ -61,7 +48,7 @@ def kill_project(
 ) -> dict:
     project = Path(project_dir).resolve()
     if not _engine_owned(project):
-        return _legacy().kill_project(project, factory_root=factory_root)
+        raise FactoryCoreError("NATIVE_WORKFLOW_REQUIRED: historical project control is in paper_new")
     service = _service(project, factory_root)
     state = service.kill(
         project, expected_revision=expected_revision
@@ -83,7 +70,7 @@ def pause_project(
 ) -> dict:
     project = Path(project_dir).resolve()
     if not _engine_owned(project):
-        return _legacy().pause_project(project, base_name)
+        raise FactoryCoreError("NATIVE_WORKFLOW_REQUIRED: historical project control is in paper_new")
     service = _service(project, factory_root)
     state = service.pause(
         project, expected_revision=expected_revision
@@ -106,12 +93,7 @@ def resume_project(
 ) -> dict:
     project = Path(project_dir).resolve()
     if not _engine_owned(project):
-        return _legacy().resume_project(
-            project,
-            base_name,
-            factory_root=factory_root,
-            start_runner=start_runner,
-        )
+        raise FactoryCoreError("NATIVE_WORKFLOW_REQUIRED: historical project control is in paper_new")
     service = _service(project, factory_root)
     try:
         if start_runner:
@@ -143,7 +125,28 @@ def project_summary(project_dir: str | Path, base_name: str) -> dict:
 
 
 def render_status(factory_root: str | Path) -> str:
-    return _legacy().render_status(factory_root)
+    root = Path(factory_root).resolve()
+    lines = ["PROJECT                         SCOPE       STATUS                    STAGE/SUBTASK"]
+    for scope in ("ongoing", "complete"):
+        for project in sorted((root / scope).glob("*")):
+            if not project.is_dir():
+                continue
+            store = SQLiteStateStore(project)
+            if not store.exists:
+                lines.append(f"{project.name:<31} {scope:<11} HISTORICAL_READ_ONLY")
+                continue
+            try:
+                state = store.load()
+                status = state.status.value
+                if state.control_mode != "engine" or state.runtime_generation != "native_v2":
+                    status = "HISTORICAL_READ_ONLY"
+                elif state.scheduler_generation != "stage_v1":
+                    status = "STAGE_ACTIVATION_REQUIRED"
+                cursor = f"{state.active_stage or '-'} / {state.active_subtask or '-'}"
+                lines.append(f"{project.name:<31} {scope:<11} {status:<25} {cursor}")
+            except (FactoryCoreError, OSError, ValueError) as exc:
+                lines.append(f"{project.name:<31} {scope:<11} UNAVAILABLE: {exc}")
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:

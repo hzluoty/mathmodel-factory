@@ -29,17 +29,6 @@ def load_project_ctl_module():
     return importlib.import_module("project_ctl")
 
 
-def test_kill_project_sets_marker_and_removes_pid(tmp_path):
-    mod = load_project_ctl_module()
-    write_file(tmp_path / "checkpoint.md", "- **Last completed step**: 2\n")
-    write_file(tmp_path / ".runner.pid", f"{os.getpid()}\n")
-
-    mod.kill_project(tmp_path)
-
-    assert (tmp_path / ".killed").is_file()
-    assert not (tmp_path / ".runner.pid").exists()
-
-
 def test_pid_liveness_and_process_group_termination():
     mod = load_project_ctl_module()
     process = subprocess.Popen(
@@ -67,40 +56,6 @@ def test_compat_termination_requires_recorded_identity(monkeypatch):
     with pytest.raises(RuntimeError, match='persisted launch identity'):
         mod._terminate_runner(123456789)
     assert calls == []
-
-
-def test_pause_project_sets_marker_and_clears_runtime_state(tmp_path):
-    mod = load_project_ctl_module()
-    write_file(tmp_path / "checkpoint.md", "- **Last completed step**: 2\n")
-    write_file(tmp_path / ".runner.pid", "999999\n")
-    write_file(tmp_path / ".heartbeat", "ACTIVE:2 1700000000\n")
-    write_file(tmp_path / ".runner.lock.info", "lock\n")
-    write_file(tmp_path / ".runner.lock" / "info", "lock\n")
-
-    result = mod.pause_project(tmp_path, "demo")
-
-    assert result["paused"] is True
-    assert (tmp_path / ".paused").is_file()
-    assert not (tmp_path / ".runner.pid").exists()
-    assert not (tmp_path / ".heartbeat").exists()
-    assert not (tmp_path / ".runner.lock.info").exists()
-    assert not (tmp_path / ".runner.lock" / "info").exists()
-
-
-def test_resume_project_clears_pause_state_without_running_process(tmp_path):
-    mod = load_project_ctl_module()
-    write_file(tmp_path / "checkpoint.md", "- **Last completed step**: 3\n")
-    write_file(tmp_path / ".paused", "")
-    write_file(tmp_path / ".heartbeat", "ACTIVE:3 1700000000\n")
-    write_file(tmp_path / ".runner.lock.info", "lock\n")
-
-    result = mod.resume_project(tmp_path, "demo", start_runner=False)
-
-    assert result["resumed"] is True
-    assert result["started"] is False
-    assert not (tmp_path / ".paused").exists()
-    assert not (tmp_path / ".heartbeat").exists()
-    assert not (tmp_path / ".runner.lock.info").exists()
 
 
 def test_engine_project_controls_write_revisioned_state_and_projections(tmp_path):
@@ -298,66 +253,10 @@ def test_project_ctl_cli_status_outputs_project_rows(tmp_path):
     )
 
     assert out.returncode == 0, out.stderr
-    assert "=== Modeling Factory Status ===" in out.stdout
+    assert "PROJECT" in out.stdout
     assert "alpha" in out.stdout
-    assert "PAUSED" in out.stdout
+    assert "HISTORICAL_READ_ONLY" in out.stdout
     assert "beta" in out.stdout
-
-
-def test_launch_agents_pause_and_status_delegate_to_project_ctl():
-    project_name = "_project_ctl_pause_test"
-    project_dir = Path(REPO_ROOT) / "ongoing" / project_name
-    write_file(project_dir / "checkpoint.md", "- **Last completed step**: 3\n")
-    write_file(project_dir / ".runner.pid", "999999\n")
-    write_file(project_dir / ".heartbeat", "ACTIVE:3 1700000000\n")
-
-    try:
-        pause_out = subprocess.run(
-            [LAUNCH, "pause", project_name],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-        assert pause_out.returncode == 0, pause_out.stderr
-        assert (project_dir / ".paused").is_file()
-        assert not (project_dir / ".runner.pid").exists()
-
-        status_out = subprocess.run(
-            [LAUNCH, "status"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-        assert status_out.returncode == 0, status_out.stderr
-        line = next((ln for ln in status_out.stdout.splitlines() if project_name in ln), None)
-        assert line is not None, status_out.stdout
-        assert "PAUSED" in line
-    finally:
-        shutil.rmtree(project_dir, ignore_errors=True)
-
-
-def test_launch_agents_kill_delegates_to_project_ctl():
-    project_name = "_project_ctl_kill_test"
-    project_dir = Path(REPO_ROOT) / "ongoing" / project_name
-    write_file(project_dir / "checkpoint.md", "- **Last completed step**: 3\n")
-    write_file(project_dir / ".runner.pid", f"{os.getpid()}\n")
-
-    try:
-        out = subprocess.run(
-            [LAUNCH, "kill", project_name],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-
-        assert out.returncode == 0, out.stderr
-        assert (project_dir / ".killed").is_file()
-        assert not (project_dir / ".runner.pid").exists()
-    finally:
-        shutil.rmtree(project_dir, ignore_errors=True)
 
 
 def test_launch_agents_new_initializes_python_engine_state():

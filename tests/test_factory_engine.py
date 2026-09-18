@@ -369,56 +369,6 @@ def test_reopen_result_is_committed_before_artifact_validation(tmp_path):
     assert [event.type for event in store.events()].count("STEP_REOPENED") == 1
 
 
-def test_legacy_registry_preserves_step_specific_timeout_contracts():
-    from factory_core.adapters.legacy import build_legacy_registry
-
-    registry = build_legacy_registry("/tmp", "/tmp/legacy_runner.sh")
-
-    assert registry.get(2).timeout_seconds == 28_800
-    assert registry.get(3).timeout_seconds == 7_200
-    assert registry.get(16).timeout_seconds == 3_600
-
-
-def test_legacy_timeout_reaps_process_after_sigkill(tmp_path, monkeypatch):
-    from factory_core.adapters import legacy
-
-    class TimedOutProcess:
-        pid = 12345
-
-        def __init__(self):
-            self.wait_calls = []
-
-        def wait(self, timeout=None):
-            self.wait_calls.append(timeout)
-            if len(self.wait_calls) <= 2:
-                raise subprocess.TimeoutExpired("legacy_runner", timeout)
-            return -9
-
-    process = TimedOutProcess()
-    signals = []
-    monkeypatch.setattr(legacy.subprocess, "Popen", lambda *args, **kwargs: process)
-    monkeypatch.setattr(legacy.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
-    handler = legacy.LegacyStepHandler(tmp_path, tmp_path / "legacy_runner.sh")
-    context = StepContext(
-        project_dir=tmp_path,
-        project_id="demo",
-        step_id=1,
-        attempt=1,
-        timeout_seconds=30,
-        revision=1,
-    )
-
-    result = handler.execute(context)
-
-    assert result.returncode == 124
-    assert result.error_class == "TRANSIENT_TIMEOUT"
-    assert process.wait_calls == [210, 10, None]
-    assert signals == [
-        (process.pid, legacy.signal.SIGTERM),
-        (process.pid, legacy.signal.SIGKILL),
-    ]
-
-
 def test_new_execution_backend_is_registered_without_scheduler_change():
     from factory_core.registry import BackendRegistry
 
@@ -428,56 +378,6 @@ def test_new_execution_backend_is_registered_without_scheduler_change():
     registry.register("new-cloud-solver", backend)
 
     assert registry.get("new-cloud-solver") is backend
-
-
-def test_recovery_does_not_reopen_resolved_consultation(tmp_path):
-    from factory_core.adapters.legacy import LegacyArtifactValidator
-
-    (tmp_path / ".awaiting_consultation").write_text(
-        "GATE:step4 STEP:4\n", encoding="utf-8"
-    )
-    (tmp_path / "human_review.md").write_text(
-        "## CONSULT step4 (Step 4) - STATUS: READY\n\nUse option A.\n",
-        encoding="utf-8",
-    )
-    validator = LegacyArtifactValidator("/tmp", "/tmp/legacy_runner.sh")
-    validator.infer_step = lambda _project: 3
-    context = StepContext(
-        project_dir=tmp_path,
-        project_id="demo",
-        step_id=4,
-        attempt=1,
-        timeout_seconds=30,
-        revision=2,
-    )
-
-    result = validator.validate(context)
-
-    assert result.pending_action is None
-    assert result.is_valid is False
-
-
-def test_legacy_validator_reports_durable_reopen_target(tmp_path):
-    from factory_core.adapters.legacy import LegacyArtifactValidator
-
-    (tmp_path / "checkpoint.md").write_text(
-        "- **Last completed step**: 11\n", encoding="utf-8"
-    )
-    (tmp_path / ".gate2_reopen_to_revision").touch()
-    validator = LegacyArtifactValidator("/tmp", "/tmp/legacy_runner.sh")
-    context = StepContext(
-        project_dir=tmp_path,
-        project_id="demo",
-        step_id=13,
-        attempt=1,
-        timeout_seconds=30,
-        revision=2,
-    )
-
-    result = validator.validate(context)
-
-    assert result.is_valid is False
-    assert result.metadata == {"resume_after_step": 11}
 
 
 def test_projection_failure_does_not_rollback_authoritative_transition(tmp_path):

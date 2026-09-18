@@ -57,7 +57,7 @@ def build_final_acceptance_receipt(
     # This check deliberately precedes every read, directory creation, and
     # receipt write in this producer.  It is a no-op only for projects without
     # an explicit/current Phase9 coordinate.
-    from ..phase9_delivery_fence import (
+    from ..native_boundary import (
         delivery_side_effect_commit_lease,
         require_delivery_side_effect_authority,
     )

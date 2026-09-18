@@ -19,8 +19,6 @@ from ..audit.persistence import atomic_write_json
 
 RELEASE_MANIFEST_SCHEMA = "paper-factory-release-v1"
 RELEASE_POINTER_SCHEMA = "paper-factory-release-pointer-v1"
-_PHASE9_RELEASE_MANIFEST_SCHEMA = "paper-factory-release-v2"
-_PHASE9_RELEASE_POINTER_SCHEMA = "paper-factory-release-pointer-v2"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _CORE_RELEASE_ARTIFACTS = {
     "paper": "paper.pdf",
@@ -91,35 +89,6 @@ def _expected_release_artifacts(manifest: dict[str, object]) -> dict[str, str]:
     return expected
 
 
-def _manifest_delivery_fence(
-    manifest: dict[str, object], base: str
-) -> dict[str, object] | None:
-    fence = manifest.get("phase9_delivery_fence")
-    expected = {
-        "project_id",
-        "workflow_id",
-        "run_generation",
-        "replay_id",
-        "replay_mode",
-        "terminal_receipt_sha256",
-        "run_mode",
-        "modeling_consultation_contract",
-        "delivery_capability",
-    }
-    if not isinstance(fence, dict) or set(fence) != expected:
-        return None
-    text_fields = expected - {"terminal_receipt_sha256"}
-    if (
-        fence.get("project_id") != base
-        or any(
-            not isinstance(fence.get(name), str) or not str(fence[name]).strip()
-            for name in text_fields
-        )
-        or SHA256_RE.fullmatch(str(fence.get("terminal_receipt_sha256") or ""))
-        is None
-    ):
-        return None
-    return dict(fence)
 
 
 @dataclass(frozen=True)
@@ -136,11 +105,11 @@ class ReleaseResult:
 def resolve_current_release(
     papers_root: Path, base: str, *, project: Path
 ) -> ReleaseResult | None:
-    """Resolve a release only while its exact Authority coordinate is current.
+    """Resolve only a hash-verified Native release from an eligible project.
 
     The immutable manifest is necessary evidence, but it is never authority by
-    itself.  A stale PASS on disk therefore becomes invisible as soon as the
-    current generation, terminal, mode, or delivery capability changes.
+    itself. Experimental databases and release formats are never accepted by
+    the Native mainline.
     """
 
     papers_root = papers_root.resolve()
@@ -152,8 +121,7 @@ def resolve_current_release(
         pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
         pointer_schema = pointer.get("schema_version")
         if (
-            pointer_schema
-            not in {RELEASE_POINTER_SCHEMA, _PHASE9_RELEASE_POINTER_SCHEMA}
+            pointer_schema != RELEASE_POINTER_SCHEMA
             or pointer.get("base") != base
             or not SHA256_RE.fullmatch(str(pointer.get("release_id") or ""))
         ):
@@ -169,40 +137,18 @@ def resolve_current_release(
         unsigned = dict(manifest)
         unsigned.pop("content_sha256", None)
         manifest_schema = manifest.get("schema_version")
-        expected_pointer_schema = (
-            _PHASE9_RELEASE_POINTER_SCHEMA
-            if manifest_schema == _PHASE9_RELEASE_MANIFEST_SCHEMA
-            else RELEASE_POINTER_SCHEMA
-        )
         if (
-            manifest_schema
-            not in {RELEASE_MANIFEST_SCHEMA, _PHASE9_RELEASE_MANIFEST_SCHEMA}
-            or pointer_schema != expected_pointer_schema
+            manifest_schema != RELEASE_MANIFEST_SCHEMA
             or manifest.get("base") != base
             or manifest.get("release_id") != pointer["release_id"]
             or declared != _canonical_hash(unsigned)
             or pointer.get("manifest_sha256") != _sha256(manifest_path)
         ):
             return None
-        if manifest_schema == RELEASE_MANIFEST_SCHEMA:
-            from ..phase9_delivery_fence import legacy_delivery_projection_allowed
+        from ..native_boundary import native_delivery_projection_allowed
 
-            if not legacy_delivery_projection_allowed(project):
-                return None
-        else:
-            recorded_fence = _manifest_delivery_fence(manifest, base)
-            if recorded_fence is None:
-                return None
-            from ..phase9_delivery_fence import require_phase9_delivery_authority
-
-            live_fence = require_phase9_delivery_authority(
-                project,
-                workflow_id=str(recorded_fence["workflow_id"]),
-                run_generation=str(recorded_fence["run_generation"]),
-                operation="release",
-            )
-            if live_fence.__dict__ != recorded_fence:
-                return None
+        if not native_delivery_projection_allowed(project):
+            return None
         expected = _expected_release_artifacts(manifest)
         artifacts = manifest.get("artifacts")
         if not isinstance(artifacts, dict) or set(artifacts) != set(expected):
@@ -265,7 +211,7 @@ class ReleasePublisher:
         workflow_id: str | None = None,
         run_generation: str | None = None,
     ) -> ReleaseResult:
-        from ..phase9_delivery_fence import (
+        from ..native_boundary import (
             delivery_side_effect_commit_lease,
             require_delivery_side_effect_authority,
         )
@@ -479,7 +425,7 @@ class ReleasePublisher:
         workflow_id: str | None = None,
         run_generation: str | None = None,
     ) -> ReleaseResult | None:
-        from ..phase9_delivery_fence import (
+        from ..native_boundary import (
             delivery_side_effect_commit_lease,
             require_delivery_side_effect_authority,
         )
@@ -520,15 +466,10 @@ class ReleasePublisher:
             declared = unsigned.pop("content_sha256", None)
             if (
                 value.get("schema_version")
-                not in {RELEASE_MANIFEST_SCHEMA, _PHASE9_RELEASE_MANIFEST_SCHEMA}
+                != RELEASE_MANIFEST_SCHEMA
                 or value.get("base") != base
                 or value.get("release_id") != release_id
                 or declared != _canonical_hash(unsigned)
-            ):
-                return None
-            if (
-                value.get("schema_version") == _PHASE9_RELEASE_MANIFEST_SCHEMA
-                and _manifest_delivery_fence(value, base) is None
             ):
                 return None
             expected = _expected_release_artifacts(value)

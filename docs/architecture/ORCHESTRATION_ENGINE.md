@@ -1,5 +1,7 @@
 # Orchestration Engine
 
+> Historical design snapshot: Legacy/Authority/Phase paths and rollback procedures described below are retired from this mainline as of 2026-09-16. Current execution and separation boundaries: [NATIVE_MAINLINE.md](NATIVE_MAINLINE.md). Stage mappings and evidence contracts remain implemented unless explicitly superseded there.
+
 This document owns the current runtime-state, migration, and recovery contract.
 `STEPS.md` continues to own Step artifacts and quality gates.
 

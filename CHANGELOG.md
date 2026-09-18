@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-16 — Native mainline source split
+
+- Moved Authority/Phase 3–9, shadow Web surfaces and Legacy runners/tests/docs to a complete tracked-source baseline at `~/paper_new`; recorded hashes and relocation inventory.
+- Main entry points now use FactoryEngine + SQLite + Native Stage only. Older Native projects require explicit Stage activation; Legacy rollback/import and experimental DB dispatch are rejected.
+- Kept native audit, solver evidence, final approval and atomic delivery checks, with independent native DB/commit boundaries. Removed experimental frontend flags, API routers and CI bootstrap dependencies.
+- Runtime data, credentials, other worktrees and production processes are unchanged. See `docs/architecture/NATIVE_MAINLINE.md`.
+
+
 ## 2026-09-15: Authority solver-policy application route
 
 - Route solver configuration and queries through fenced Authority command

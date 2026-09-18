@@ -85,7 +85,7 @@ Important rules:
   code consumed it. Set the seed explicitly in the script and record the
   observed seed in result provenance whenever reproducibility depends on it.
 - Use `--status "$JOBID" --json` as the only public evidence query. Native and
-  Legacy jobs share `solver-job-evidence-v2`; old jobs without immutable
+  Native jobs use `solver-job-evidence-v2`; historical evidence without immutable
   submission/completion receipts return `receipt_ready=false` and are not proof
   of execution identity. Native receipts additionally require matching hashes in
   the append-only workflow event stream (`event_stream_bound=true`).

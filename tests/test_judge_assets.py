@@ -136,24 +136,3 @@ def test_filesystem_grounding_preserves_original_role_directory_boundary(tmp_pat
     report = validate_grounding(output, root / 'manifest.json', role='execution')
     assert not report['valid']
     assert any(error['code'] == 'ASSET_UNREADABLE' for error in report['errors'])
-
-
-def test_phase7_preserves_verified_text_asset_reference_coordinates(tmp_path, monkeypatch):
-    from scripts.evidence_grounding import validate_grounding_bytes
-    from factory_core.phase7_grounding_runtime import _normalized_report
-
-    root, manifest, context = prepare(tmp_path, monkeypatch)
-    item = manifest['files'][0]
-    output = ('VERDICT: PASS\n' + json.dumps({
-        'schema_version': 'judge-hard-role-v2', 'role': 'execution', 'verdict': 'PASS',
-        'evidence': [{'ref_id': 'e1', 'chunk_id': item['chunk_id'],
-                      'quote': 'complete original numerical array'}],
-    })).encode()
-    manifest_bytes = json.dumps(manifest).encode()
-    assets = {entry['asset_path']: (root / entry['asset_path']).read_bytes() for entry in manifest['files']}
-    report = validate_grounding_bytes(output, manifest_bytes, context.encode(), role='execution', assets=assets)
-    assert report['valid']
-    normalized = _normalized_report('execution', report, manifest_bytes, context.encode())
-    assert normalized['refs'][0]['asset_path'] == item['asset_path']
-    assert normalized['refs'][0]['context_line_start'] is None
-    assert normalized['refs'][0]['source_line_start'] >= 1

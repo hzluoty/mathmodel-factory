@@ -910,9 +910,12 @@ def test_complete_candidate_source_snapshot_has_no_secret_findings() -> None:
             for item in sorted(ROOT.rglob("*"))
             if item.is_file() or item.is_symlink()
         ]
+    deleted = set(subprocess.check_output(
+        ["git", "ls-files", "--deleted", "-z"], cwd=ROOT
+    ).split(b"\0")) if (ROOT / ".git").exists() else set()
     frozen: dict[str, bytes] = {}
     for raw_path in listed:
-        if not raw_path:
+        if not raw_path or raw_path in deleted:
             continue
         path = raw_path.decode("utf-8", errors="strict")
         # audit_artifacts/ is the immutable output/evidence root, never a

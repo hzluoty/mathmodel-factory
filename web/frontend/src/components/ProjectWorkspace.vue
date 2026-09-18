@@ -67,7 +67,6 @@
     </nav>
 
     <ActionCenter
-      v-if="!optionalWorkspaceExtensionEnabled || activeTab !== optionalWorkspaceExtensionKey"
       :actions="workspaceActions"
       @navigate="onWorkspaceAction"
     />
@@ -239,12 +238,6 @@
         @changed="onCloudPanelChanged"
       />
 
-      <OptionalWorkspaceExtensionPanel
-        v-else-if="optionalWorkspaceExtensionEnabled && activeTab === optionalWorkspaceExtensionKey"
-        class="tab-panel rise"
-        :base-name="project.base_name"
-        @navigate="onWorkspaceAction"
-      />
 
       <div v-else class="empty-panel panel">
         <Icon name="folder" :size="28" />
@@ -288,12 +281,6 @@ import { useProjectPolling } from '../composables/useProjectPolling.js'
 import { useProjectSteps } from '../composables/useProjectSteps.js'
 import { useContestDashboard } from '../composables/useContestDashboard.js'
 import { useRealtime } from '../composables/useRealtime.js'
-import {
-  optionalWorkspaceExtensionEnabled,
-  optionalWorkspaceExtensionKey,
-  optionalWorkspaceExtensionLoader,
-  optionalWorkspaceExtensionTab,
-} from 'virtual:optional-workspace-snapshot'
 
 // Heavy sub-views are lazy so each tab's code (and KaTeX, via markdown.js used by
 // PipelineTimeline/ArtifactBrowser/ConsultationPanel) loads on demand.
@@ -314,17 +301,9 @@ const CloudAcceleratorDialog = defineAsyncComponent({ loader: () => import('./Cl
 const CloudTaskPanel = defineAsyncComponent({ loader: () => import('./CloudTaskPanel.vue'), ...asyncOpts })
 const EvidenceCockpit = defineAsyncComponent({ loader: () => import('./EvidenceCockpit.vue'), ...asyncOpts })
 const DeliveryReadinessPanel = defineAsyncComponent({ loader: () => import('./DeliveryReadinessPanel.vue'), ...asyncOpts })
-// Vite resolves the virtual module to an entirely inert default-off module or
-// to the reviewed optional extension.  The base workspace contains no Phase 6
-// path, route, component, or API string, so an accidental unconditional import
-// is visible in the production manifest and browser resource tests.
-const OptionalWorkspaceExtensionPanel = optionalWorkspaceExtensionLoader
-  ? defineAsyncComponent({ loader: optionalWorkspaceExtensionLoader, ...asyncOpts })
-  : { render: () => null }
-
 export default {
   name: 'ProjectWorkspace',
-  components: { StageProgressPanel, JointModelingPanel, AuditStatusPanel, Icon, ActionCenter, ContestTimingPanel, ModelingDirectionPanel, SelectionPanel, PipelineTimeline, ProblemPlanPanel, LogConsole, ArtifactBrowser, SolverJobPanel, ConsultationPanel, DiagnosticsCard, ModelManager, CloudAcceleratorDialog, CloudTaskPanel, EvidenceCockpit, DeliveryReadinessPanel, OptionalWorkspaceExtensionPanel },
+  components: { StageProgressPanel, JointModelingPanel, AuditStatusPanel, Icon, ActionCenter, ContestTimingPanel, ModelingDirectionPanel, SelectionPanel, PipelineTimeline, ProblemPlanPanel, LogConsole, ArtifactBrowser, SolverJobPanel, ConsultationPanel, DiagnosticsCard, ModelManager, CloudAcceleratorDialog, CloudTaskPanel, EvidenceCockpit, DeliveryReadinessPanel },
   props: {
     project: { type: Object, required: true },
     isAdmin: { type: Boolean, default: false },
@@ -377,9 +356,6 @@ export default {
         diagnostics: diagnostics.value,
         cloudEnabled: cloudEnabled.value,
       })
-      if (optionalWorkspaceExtensionEnabled && optionalWorkspaceExtensionTab) {
-        currentTabs.push(optionalWorkspaceExtensionTab)
-      }
       return currentTabs
     })
     const workspaceActions = computed(() => buildWorkspaceActions(contestDashboard.value, stepsData.value, props.project))
@@ -625,9 +601,6 @@ export default {
 
     // ---- tab deep-linking: keep activeTab and route.query.tab in sync ----
     const VALID_TABS = new Set(['overview', 'pipeline', 'plan', 'logs', 'artifacts', 'evidence', 'delivery', 'solver', 'diagnostics', 'consultation', 'selection', 'cloud'])
-    if (optionalWorkspaceExtensionEnabled && optionalWorkspaceExtensionKey) {
-      VALID_TABS.add(optionalWorkspaceExtensionKey)
-    }
     let syncingTab = false
     // URL -> tab. Only act when the URL explicitly carries a valid tab, so an
     // absent ?tab leaves the consultation auto-jump / default 'overview' intact.
@@ -692,8 +665,6 @@ export default {
       contestDashboard,
       contestDashboardLoading,
       workspaceActions,
-      optionalWorkspaceExtensionEnabled,
-      optionalWorkspaceExtensionKey,
       activeTab,
       tabs,
       loading,

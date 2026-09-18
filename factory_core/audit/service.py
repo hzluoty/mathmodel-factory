@@ -125,7 +125,7 @@ class FinalAuditService:
         # commit.  A sanctioned Phase9 writer therefore linearizes wholly
         # before this call (which refuses without creating the audit lock) or
         # wholly after it.  The leaf acceptance lease is same-thread reentrant.
-        from ..phase9_delivery_fence import delivery_side_effect_commit_lease
+        from ..native_boundary import delivery_side_effect_commit_lease
 
         with delivery_side_effect_commit_lease(
             project,
@@ -689,8 +689,8 @@ class FinalAuditService:
         # final-submission artifacts.  Reclassify immediately before that
         # boundary; the receipt builder independently repeats this check.
         try:
-            from ..phase9_delivery_fence import (
-                Phase9DeliveryFenceError,
+            from ..native_boundary import (
+                NativeBoundaryError,
                 delivery_side_effect_commit_lease,
                 require_delivery_side_effect_authority,
             )
@@ -796,7 +796,7 @@ class FinalAuditService:
                     },
                 )
                 record = self._persist(project, snapshot, record)
-        except Phase9DeliveryFenceError as exc:
+        except NativeBoundaryError as exc:
             return self._failure(
                 project,
                 snapshot=snapshot,

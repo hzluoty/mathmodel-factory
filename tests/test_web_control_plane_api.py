@@ -20,7 +20,6 @@ def load_main_module(factory_root=None, auth_db_file=None):
         "web.backend.auth",
         "web.backend.access_control",
         "web.backend.schemas",
-        "web.backend.phase6_api",
     ]:
         sys.modules.pop(module_name, None)
     sys.modules.pop("fastapi", None)
@@ -1217,3 +1216,13 @@ def test_websocket_client_close_does_not_log_runtime_failure(tmp_path):
 
     assert websocket.accepted is True
     assert mod.manager.connections() == []
+
+
+def test_removed_phase_flags_do_not_register_experimental_routes(tmp_path, monkeypatch):
+    monkeypatch.setenv("PHASE6_SNAPSHOT_ENABLED", "true")
+    monkeypatch.setenv("PHASE78_ENABLED", "true")
+    module = load_main_module(tmp_path, tmp_path / "auth.db")
+    paths = [route.path for route in module.app.routes]
+    assert not any("phase6" in path or "phase78" in path for path in paths)
+    assert "web.backend.phase6_api" not in sys.modules
+    assert "web.backend.phase78_api" not in sys.modules

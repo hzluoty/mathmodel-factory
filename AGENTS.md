@@ -25,6 +25,9 @@ and update the current document. Do not silently preserve two current answers.
 - Treat `run_paper.sh --infer-step <project_dir>` as the authoritative workflow
   status check. `checkpoint.md` and the presence of `complete/` are not proof of
   current-contract completion.
+- Main execution is FactoryEngine + SQLite + Native Stage only. See
+  `docs/architecture/NATIVE_MAINLINE.md`; experimental/Legacy source lives in
+  `~/paper_new`. Never auto-downgrade experimental databases or fall back to Legacy.
 - Use `solver_submit.sh` for nontrivial solver work and explicit time limits.
 - Prefer focused tests for the touched contract. Full-repository pytest can be
   noisy because historical test modules and optional Web/runtime dependencies
