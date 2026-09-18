@@ -12,7 +12,7 @@ https://tfisher.de
         └── /ws   → 127.0.0.1:8000/ws
 
 paper-factory-api.service
-        └── /home/tfisher/paper_factory/.venv/bin/uvicorn apps.web.backend.main:app
+        └── uvicorn apps.web.backend.main:app --host 127.0.0.1 --port 8000
             └── scripts/load_secrets.sh → GCP Secret Manager
 ```
 

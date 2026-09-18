@@ -157,6 +157,8 @@ def test_systemd_unit_template_sources_secret_manager_loader():
     assert "WorkingDirectory=/home/tfisher/paper_factory" in unit
     assert "/paper_factory/.venv/bin/uvicorn" in unit
     assert "apps.web.backend.main:app" in unit
+    assert "--host 127.0.0.1" in unit
+    assert "--host 0.0.0.0" not in unit
     assert "KillMode=control-group" in unit
     assert "StartLimitBurst=" in unit
     assert "web/backend/venv" not in unit

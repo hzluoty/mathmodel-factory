@@ -249,13 +249,15 @@ def _fallback_status(project_path: Path, base_name: str) -> dict:
     }
 
 
-def read_runtime_status(project_path: str | Path, base_name: str) -> dict:
+def read_runtime_status(project_path: str | Path, base_name: str, *,
+                        include_fingerprint: bool = True) -> dict:
     project = Path(project_path)
     workflow_store = SQLiteStateStore(project)
     read = workflow_store.status_snapshot() if workflow_store.exists else None
     if read is not None and read["state"].control_mode == "engine":
         state = read["state"]
-        snapshot = authoritative_status(project, read)
+        snapshot = authoritative_status(
+            project, read, include_fingerprint=include_fingerprint)
         payload = _from_snapshot(project, base_name, snapshot)
         action = state.pending_action or {}
         payload["status"] = snapshot["state"]
