@@ -19,7 +19,7 @@ from factory_core.submission_bundle import (
     submission_bundle_manifest,
     verify_zip_against_manifest,
 )
-from factory_core.phase9_delivery_fence import (
+from factory_core.native_boundary import (
     delivery_side_effect_commit_lease,
     require_delivery_side_effect_authority,
 )

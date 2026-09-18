@@ -1,5 +1,7 @@
 # 10-Stage 编排合同与实施状态
 
+> Historical design snapshot: Legacy/Authority/Phase paths and rollback procedures described below are retired from this mainline as of 2026-09-16. Current execution and separation boundaries: [NATIVE_MAINLINE.md](NATIVE_MAINLINE.md). Stage mappings and evidence contracts remain implemented unless explicitly superseded there.
+
 > 状态：代码合同已实施；新项目默认使用 `stage_v1`，旧 native 项目保持
 > `step_v2` 直到显式切换，Legacy 项目保持冻结适配路径。
 >

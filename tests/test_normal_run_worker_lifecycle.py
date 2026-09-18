@@ -15,28 +15,17 @@ from factory_core.storage import SQLiteStateStore
 from factory_core import persistent_launcher
 
 
-def test_normal_service_entry_records_real_cli_initialization_failure(tmp_path):
+def test_normal_service_rejects_unavailable_runtime_before_launch(tmp_path):
     project = tmp_path / 'ongoing/demo'
     project.mkdir(parents=True)
     store = SQLiteStateStore(project)
-    # A runtime configuration that the actual CLI engine cannot initialize.
-    store.initialize(project_id='demo', project_type='modeling', runtime_generation='unavailable-runtime')
-    service = FactoryService(tmp_path)
-    assert type(service.worker_launcher) is WorkerLauncher
-    before = time.monotonic()
-    with pytest.raises(RuntimeError, match='before initialization'):
-        service.start('demo')
-    assert time.monotonic() - before < 5
-    state = store.load()
-    assert state.status is WorkflowStatus.FAILED and state.runner_pid is None
-    failure = store.events()[-1]
-    assert failure.type == 'WORKER_START_FAILED'
-    assert failure.payload['error_class'] == 'WORKER_INITIALIZATION_FAILED'
-    assert failure.payload['process_tree_exited'] is True
-    status = service.status('demo')
-    assert status['workflow_error'] == 'WORKER_INITIALIZATION_FAILED'
+    before = store.initialize(project_id='demo', project_type='modeling', runtime_generation='unavailable-runtime')
+    events = store.events()
+    with pytest.raises(RuntimeError, match='NATIVE_WORKFLOW_REQUIRED'):
+        FactoryService(tmp_path).start('demo')
+    assert store.load() == before
+    assert store.events() == events
     assert not list((project / '.factory').glob('worker_ready_*'))
-    assert not any('CONTINUATION' in e.type or 'REPAIR_RETRY' in e.type for e in store.events())
 
 
 def test_normal_launcher_times_out_child_that_never_acknowledges(tmp_path):
@@ -46,7 +35,7 @@ def test_normal_launcher_times_out_child_that_never_acknowledges(tmp_path):
     (code / 'factory_core/cli.py').write_text('import time; time.sleep(30)\n')
     project = tmp_path / 'ongoing/demo'; project.mkdir(parents=True)
     store = SQLiteStateStore(project)
-    store.initialize(project_id='demo', project_type='modeling')
+    store.initialize(project_id='demo', project_type='modeling', scheduler_generation='stage_v1')
     service = FactoryService(tmp_path, worker_launcher=WorkerLauncher(tmp_path, code, ready_timeout=0.2))
     with pytest.raises(TimeoutError, match='initialization timed out'):
         service.start('demo')

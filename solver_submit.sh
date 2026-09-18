@@ -2,7 +2,6 @@
 set -euo pipefail
 
 FACTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LEGACY="$FACTORY/legacy/shell/solver_submit_legacy.sh"
 export PYTHONPATH="$FACTORY${PYTHONPATH:+:$PYTHONPATH}"
 
 find_engine_project() {
@@ -47,8 +46,9 @@ if [[ -n "$script" ]]; then
 fi
 
 project="$(find_engine_project "$start_dir" 2>/dev/null || true)"
-if [[ -z "$project" || " $* " == *" --dry-run "* ]]; then
-    exec "$LEGACY" "$@"
+if [[ -z "$project" ]]; then
+    echo "ERROR: NATIVE_WORKFLOW_REQUIRED: solver submission requires a Native project with .factory/state.db" >&2
+    exit 2
 fi
 
 case "${1:-}" in

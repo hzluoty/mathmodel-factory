@@ -18,8 +18,8 @@ from factory_core.domain import ExecutionResult, StepContext
 from factory_core.decision_receipts import verified_approval_receipts
 from factory_core.governance.overrides import SQLiteOverrideProvider
 from factory_core.contest import ContestPolicy
-from factory_core.phase9_authority_lease import authority_state_commit_lease
-from factory_core.phase9_delivery_fence import Phase9DeliveryFenceError
+from factory_core.state_lease import state_commit_lease
+from factory_core.native_boundary import NativeBoundaryError
 from factory_core.storage import SQLiteStateStore
 from web.backend.auth_store import AuthStore
 
@@ -382,7 +382,7 @@ def test_phase9_transition_at_acceptance_commit_leaves_no_acceptance_artifact(
         fingerprinter=lambda _project, _base: "1" * 64,
     )
     import contextlib
-    import factory_core.phase9_delivery_fence as fence_module
+    import factory_core.native_boundary as fence_module
 
     original_lease = fence_module.delivery_side_effect_commit_lease
     switched: dict[str, object] = {}
@@ -390,7 +390,7 @@ def test_phase9_transition_at_acceptance_commit_leaves_no_acceptance_artifact(
     @contextlib.contextmanager
     def switch_before_acceptance_commit(*args, **kwargs):
         if not switched and kwargs.get("operation") == "acceptance":
-            with authority_state_commit_lease(project):
+            with state_commit_lease(project):
                 switched["database"] = _install_minimal_current_phase9(project)
             switched["files"] = _project_file_bytes(project)
         with original_lease(*args, **kwargs):
@@ -404,8 +404,8 @@ def test_phase9_transition_at_acceptance_commit_leaves_no_acceptance_artifact(
 
     context = make_context(project)
     with pytest.raises(
-        Phase9DeliveryFenceError,
-        match="Phase9 acceptance requires explicit workflow_id and run_generation",
+        NativeBoundaryError,
+        match="NATIVE_WORKFLOW_REQUIRED",
     ):
         service.run(context, reuse_pass=False, analysis_only=False)
 
@@ -458,7 +458,7 @@ def test_non_analysis_audit_serializes_absent_db_phase9_writer_through_acceptanc
 
     def install_phase9() -> None:
         writer_started.set()
-        with authority_state_commit_lease(project):
+        with state_commit_lease(project):
             _install_minimal_current_phase9(project)
         writer_finished.set()
 

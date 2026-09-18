@@ -31,15 +31,13 @@ cd web
 - **求解证据**：在项目工作区查看本地/云端 Solver 作业、终态、耗时与两阶段 receipt 完整性。
 - **项目控制**：在权限范围内暂停、恢复或终止运行。
 - **人工咨询与选择**：处理咨询请求；交互式项目可启用 Step 3 `PRIMARY/AUXILIARY` 选择门，CLI 路径仍然保留。
-- **Phase 6 验证快照（候选、默认关闭）**：可选展示独立 shadow SQLite 中与单一 Authority revision 绑定的只读快照证据；认证与项目 ACL 先行，且永远不授予 Authority、交付或 dispatch 能力。
-- **Phase 7+8 本地 full-shadow（候选、默认关闭）**：受控 OS 操作员先生成经持久验证的本地 preflight，随后普通 CLI/Web 调用经持久 request/claim/lease ledger 同步执行三角色 grounding、PDF/CAS 与 shadow egress decision；Web 仅提供 ACL-first API 读写适配器，没有前端面板、provider、outbox 或真实 dispatch。
 
 详细使用说明请参阅 [`web/README.md`](web/README.md)。
 
 ## 包含内容
 
 - `launch_agents.sh`：本地启动器，包含 `new`、`resume`、`pause`、`run`、`attach`、`trace` 和 `status` 等命令。
-- `run_paper.sh`：兼容启动器；新项目和已迁移项目进入 `factory_core/` Python 引擎，未迁移建模项目进入冻结的 Legacy Adapter。
+- `run_paper.sh`：Native 启动器；通过 `factory_core/` Python 引擎与 SQLite 运行 Stage。
 - `factory_core/`：版本化 SQLite 状态、追加式事件、恢复、重试、Step 注册和执行适配器。
 - `STEPS.md`：标准的数学建模工作流契约。
 - `modeling_guide.md`：项目结构、求解器、LaTeX、图表生成及可复现性规范。
@@ -89,44 +87,11 @@ chmod +x launch_agents.sh run_paper.sh compile_paper.sh solver_submit.sh solver_
 
 这些运行输出会被 Git 自动忽略。
 
-## 最新更新（2026-08-30）
+## 当前主流程（2026-09-16）
 
-当前候选工作树的近期变更集中在核心编排、Web 控制面、评测治理与仓库治理；
-是否进入 `main` 仍以独立审核和后续授权为准：
-
-- Phase 6 候选实现 verified snapshot 与 closed scoped-grant 的独立持久化 full shadow：canonical source binding 精确绑定 Authority coordinate 和 Phase 3/4/5 状态哈希，snapshot/current、grant lifecycle、evaluation/proof 与幂等 receipt 事务化保存在 caller-selected SQLite。Web 只提供 ACL-first 的非权威 GET 适配器；后端 `PHASE6_SNAPSHOT_ENABLED` 和前端构建时 `VITE_PHASE6_FULL_SHADOW_ENABLED=true` 必须同时启用，默认配置仍走 v1 且不触碰 Phase 6 store。它不增加 Authority reader/writer、生产 mutation、action execution 或 dispatch。当前合同见 [`docs/architecture/PHASE6_PROJECT_SNAPSHOT_UI_SHADOW.md`](docs/architecture/PHASE6_PROJECT_SNAPSHOT_UI_SHADOW.md)。
-- Phase 7+8 候选实现显式启用、同步本地的 durable full-shadow sidecar：完整绑定当前 `AuthorityPhase3ArtifactState`、修订级 occurrence、Phase 6 exact proof、三角色原始 bytes、PDF/CAS package 和 lifecycle decision。可信操作员通过独立 `factory_core.phase78_operator` 入口先生成 durable preflight；普通 subject 只能引用其 hash，再经 CLI/service/Scheduler/local worker 与 ACL-first Web API 提交、执行和读取。`PHASE78_TRUSTED_OPERATOR_ID`/`GENERATION` 只是部署标签，信任来自受控 OS 账号及 `0700`/`0600` 私有运行目录；issuer 必须不同于 subject。历史 PASS/AUTHORIZED receipt 保留，但上游 head、approval、policy 或时效变化会让 current/effective 视图失败关闭。它默认关闭、没有后台线程、frontend、provider/outbox/dispatch，也没有获得 cutover 或部署授权。当前合同见 [`docs/architecture/PHASE7_8_DURABLE_FULL_SHADOW.md`](docs/architecture/PHASE7_8_DURABLE_FULL_SHADOW.md)。
-- Phase 3–6 候选可运行 `./bootstrap.sh` 做无网络自包含验证。版本化
-  `phase46-bootstrap-exact-count-v1` 门禁精确要求五组
-  `100 / 274 / 146 / 29 / 108`、总计 657 个 passed，且 failed、skipped、
-  xfailed、xpassed 全为零。JUnit XML 与独立 pytest outcome ledger 必须完整
-  一致；终端文本仅供阅读。运行
-  `python3 -m scripts.bootstrap_test_contract describe` 可查看当前合同。
-- Phase 7+8 使用完全独立的 `./bootstrap_phase78.sh` 门禁，不改写上述 657
-  合同。其 unit、runtime、adapters、PDF/CAS、enabled-E2E 五组精确数量由
-  `python3 -m scripts.phase78_test_contract describe` 的版本化结构化合同唯一
-  定义；文档不复制尚会随合法新增测试变化的数字。两套门禁都要求零 failure、
-  error、skip、xfail 和 xpass，并分别在源码树与 fresh no-`.git` 解包树复核。
-- 冻结候选由源码内 `tools/generate_freeze_inventory.py` 和
-  `archive_tools/build_deterministic_candidate.py` 构建。二者在任何候选文件
-  `lstat/open/read/hash` 前统一调用 `scripts.evidence_payload_policy`；SQLite
-  主库及 WAL/SHM/journal、凭据、缓存和运行时状态不会进入 inventory 或 ZIP，
-  策略内部错误也会失败关闭。
-- 新项目使用 `factory_core.FactoryEngine`、`contest_core_v1` 和 10-Stage `stage_v1` 调度；未显式配置时默认 74 小时，CLI/Web 可写入官方提交 deadline 作为权威时间。Stage/subtask/Step 兼容游标、v2 主体/结果事件信封、T−6h content freeze、T−2h delivery freeze、按 request/generation 绑定且拥有不可变 receipt 的人工决策及 Solver 幂等身份保存在项目内 schema-v9 `.factory/state.db`。模块化论文从权威主文件递归解析活动 LaTeX/参考文献依赖，冻结、审计与最终指纹不会把未引用草稿混入论文身份。
-- `TransitionCoordinator` 是 application writer 的目标边界，但当前尚有 decision record、request supersede、prompt binding、projection bookkeeping、bootstrap/migration 和 archive relocation 旁路；现状清单与未来静态门禁规格见 [`docs/architecture/application_writer_allowlist_v1.json`](docs/architecture/application_writer_allowlist_v1.json)，不得把它误述为已经实现的“唯一 writer”。
-- `web/auth.db` 的身份、项目 ACL、展示 ACL 与 scoped delivery override 属于控制面；项目 `.factory/state.db` 的 scheduler/Human Decision 属于单项目 workflow。两者不能互相替代或反向授予权限。
-- `run_paper.sh` 已降级为兼容启动器；原生 Stage 调度在内部继续调用 Step 0–16 lifecycle/validator，不调用冻结 Bash，冻结实现只服务未迁移或显式回滚的项目。
-- CLI、Web 和本地/Cloud Run 求解器通过同一 `FactoryService`、revision 与事件合同运行；云执行仍受全局 quarantine 限制。
-- Python、Web backend、Cloud 镜像和前端构建均有锁文件，运行时启动脚本不再动态安装依赖。
-- 重复运行按题目内容标识聚合成“题目归档”，历史完成运行保持只读。
-- SQLite 用户库、bcrypt 密码、注册/审批、项目申请与项目 ACL 已成为现役权限模型。
-- Secret Manager 是生产敏感值来源，弱默认管理员密码或缺失 JWT Secret 会阻止后端启动。
-- Solver Jobs 面板通过项目 ACL 展示作业状态和 `solver-job-evidence-v2` receipt，不授予额外文件或控制权限。
-- Web 项目工作区已收敛为比赛控制台：8 阶段默认视图、10 Stage 高级诊断、时间风险预测、持久行动中心、三类 Human Gate、证据驾驶舱和失败关闭的交付就绪清单均使用项目 ACL。
-- Selector 的 R0a/R0b/R3 与人工放权校验器已进入主线，但尚无真实冻结 holdout、shadow cohort 或生产授权。
-- 当前 Web 使用、部署和历史报告的所有权已重新收敛，避免旧文档继续充当现役 runbook。
-
-详见 [CHANGELOG.md](CHANGELOG.md)。优秀论文写作与可视化基准仍位于 `docs/guides/`。
+主仓库只运行 **FactoryEngine + SQLite + Native Stage**。Authority、Phase 3–9、
+shadow UI/API 和历史 Bash runner 已拆至 `~/paper_new`，完整基线与迁移清单均已保留。
+详见 [主流程边界](docs/architecture/NATIVE_MAINLINE.md)。现有运行数据和其他 worktree 未迁移。
 
 ## 创建建模项目
 
@@ -204,7 +169,7 @@ python3 -m factory_core.cli audit ongoing/test_cumcm2024b
 使用 `--no-reuse` 可强制新审计，最终 profile 可用 `--no-compile` 审计现有 PDF。
 分析结果另投影到 `.factory/audits/analysis_latest.json`；对同一快照重跑只读分析
 不会覆盖已验证 acceptance 的 `.factory/audits/latest.json`。
-Step 16 才显式请求 acceptance；Legacy Adapter 使用 `--accept-delivery`，Native Adapter
+Step 16 才显式请求 acceptance；Native Adapter
 调用同一服务的 acceptance 模式。该请求只恢复 Phase1–8/legacy 交付合同；任何真正的
 Phase9 acceptance、release、submission 或 delivery 副作用仍永久 fail closed。
 
@@ -253,45 +218,29 @@ Phase9 acceptance、release、submission 或 delivery 副作用仍永久 fail cl
 - Step 13：运行隔离的数学预审；`PRECHECK_PASS` 只允许继续写摘要和润色，不代表最终质量 PASS。
 - Step 14：撰写摘要。
 - Step 15：引用、图表及排版润色；任何修改都会使 Step 13 的预提交结果失效。通过校验后形成 `CONTENT_READY` 内容边界。
-- Step 16：Native 与 Legacy 兼容适配器调用同一独立 Final Audit，并在副作用边界显式请求 acceptance；Legacy 使用 `--accept-delivery`。依次完成最终编译、完整论文/溯源检查、视觉页数门禁、三角色 Judge、快照复核及 judgment/acceptance receipt。只有非 Phase9 工作流的审计 PASS，或管理员在 `web/auth.db` 中签发并绑定精确快照的 `OVERRIDDEN` 结果，才会在同文件系统 staging 中构建不可变 release，并以一次原子替换切换 `papers/<base>/current.json` 后归档。真正的 Phase9 acceptance、release、submission 和 delivery 永久禁用；项目内 override JSON 没有授权能力。
+- Step 16：Native 适配器调用独立 Final Audit，并在副作用边界显式请求 acceptance。依次完成最终编译、完整论文/溯源检查、视觉页数门禁、三角色 Judge、快照复核及 judgment/acceptance receipt。只有Native 工作流的审计 PASS，或管理员在 `web/auth.db` 中签发并绑定精确快照的 `OVERRIDDEN` 结果，才会在同文件系统 staging 中构建不可变 release，并以一次原子替换切换 `papers/<base>/current.json` 后归档。真正的 Phase9 acceptance、release、submission 和 delivery 永久禁用；项目内 override JSON 没有授权能力。
 
 完整的详细步骤要求请参阅 `STEPS.md`。这些文件仍是产物与验证契约；项目的运行状态权威见下节。
 
 ## 注意事项
 
 - 新项目和已迁移项目以 `.factory/state.db` 的版本化快照与追加式事件为工作流状态权威；产物文件是 Step 校验依据。`run_paper.sh --infer-step <project_dir>` 对这些项目读取 SQLite。
-- 未迁移建模项目继续由冻结的 Legacy Adapter 根据产物文件推断。不要手工创建 `.factory/state.db`；使用下述显式迁移命令。
-- 当 `modeling_guide.md` 和遗留的 `analysis_guide.md` 同时存在时，以 `modeling_guide.md` 为准。
+- 无 Native 状态的旧项目仅供历史查看；不要手工创建或改写 `.factory/state.db` 来绕过边界。
 - 已完成的项目将从 `ongoing/` 移至 `complete/`。
-- 独立审计模块同时负责阶段化确定性审计和最终发布分析。Step 13 只调用数学角色；最终 profile 才运行数学、执行和论文质量三角色 Judge、判决路由与指纹。默认 CLI final audit 只生成分析记录和 judgment receipt；`judge_outputs/final_submission.sha256`、override receipt 和 final acceptance receipt 只在 Step 16 显式 acceptance 模式且安全 fence 通过后创建。兼容文件继续投影到 `judge_outputs/`。审计本身不会写 `papers/`、打包、清理或归档；Step 16 消费获准的非 Phase9 acceptance 结果后才执行这些交付动作。
+- 独立审计模块同时负责阶段化确定性审计和最终发布分析。Step 13 只调用数学角色；最终 profile 才运行数学、执行和论文质量三角色 Judge、判决路由与指纹。默认 CLI final audit 只生成分析记录和 judgment receipt；`judge_outputs/final_submission.sha256`、override receipt 和 final acceptance receipt 只在 Step 16 显式 acceptance 模式且安全 fence 通过后创建。兼容文件继续投影到 `judge_outputs/`。审计本身不会写 `papers/`、打包、清理或归档；Step 16 消费获准的Native acceptance 结果后才执行这些交付动作。
 - 交付权威是 `papers/releases/<base>/<snapshot>/` 与原子指针 `papers/<base>/current.json`；顶层同名 PDF/ZIP 仅为兼容副本。任何 staging、打包或校验失败都不会切换旧的 current release。
 - `complete/` 是历史交付目录，不等价于“符合当前最新契约”。使用 `python3 scripts/audit_complete_projects.py --write-manifests` 生成 `complete/_validation_index.json`，将项目分为 `CURRENT_PASS`、`LEGACY_DELIVERED` 和 `INVALID_OR_INCOMPLETE`。
 
-## 迁移旧项目
+## 旧项目处理
 
-`ongoing/` 迁移只允许已停止、无锁且 checkpoint 与 Legacy 推断一致的建模项目。历史 `complete/` 差异会作为 warning 保留，并以真实推断 Step 导入只读完成态，不会伪装成当前契约 Step 16。先检查并审阅报告，再用报告摘要导入：
-
-```bash
-python3 -m factory_core.cli migrate inspect ongoing/<base> \
-  --report /tmp/<base>-migration.json
-python3 -m factory_core.cli migrate apply ongoing/<base> \
-  --report /tmp/<base>-migration.json --digest <report-digest>
-```
-
-迁移后 CLI、Web 和 `run_paper.sh --infer-step` 都读取 SQLite。曾经启用
-`stage_v1` 的项目只能显式回滚到 `step_v2`，不能再降级为按残留产物推断的
-Legacy Runner。只有从未启用 Stage 的 `step_v2` 项目才允许完整 Legacy 回滚，
-且必须已停止、没有未完成的人类决策、Legacy 推断与 SQLite 游标完全相同，并携带
-调用方读取的 revision：
+无 Native SQLite 状态的项目仅供历史查看。旧 Native `step_v2` 项目需停止后显式激活 Stage：
 
 ```bash
-python3 -m factory_core.cli migrate scheduler-rollback ongoing/<base> \
-  --expected-revision <revision>  # stage_v1 -> step_v2
-python3 -m factory_core.cli migrate rollback ongoing/<base> \
-  --expected-revision <revision>  # never-Stage step_v2 -> Legacy only
+python3 -m factory_core.cli migrate scheduler-activate ongoing/<base> --expected-revision <revision>
 ```
 
-迁移不会删除 checkpoint、marker、诊断、日志或论文产物。详细状态和恢复契约见 [`docs/architecture/ORCHESTRATION_ENGINE.md`](docs/architecture/ORCHESTRATION_ENGINE.md)。
+主仓库不再提供 Legacy 导入或回退，也不转换 Authority/Phase 数据库；历史恢复工具位于
+`~/paper_new`，应在独立副本中使用。`run_paper.sh --infer-step` 只读取 Native SQLite 状态。
 
 ## 评测与消融实验
 

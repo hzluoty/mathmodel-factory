@@ -69,12 +69,12 @@ def audit_record_is_current(
 
 
 def classify_evaluation(ev: evaluate_modeling_project.Evaluation, project: Path | None = None) -> str:
-    from factory_core.phase9_delivery_fence import legacy_delivery_projection_allowed
+    from factory_core.native_boundary import native_delivery_projection_allowed
 
     checks = check_map(ev)
     audit = load_audit_record(project) if project is not None else {}
     legacy_projection = (
-        project is None or legacy_delivery_projection_allowed(project)
+        project is None or native_delivery_projection_allowed(project)
     )
     if (
         legacy_projection
@@ -145,10 +145,10 @@ def build_delivery_manifest(
         else project / ".factory" / "audits" / "invalid-snapshot.json"
     )
     from factory_core.delivery.release import resolve_current_release
-    from factory_core.phase9_delivery_fence import legacy_delivery_projection_allowed
+    from factory_core.native_boundary import native_delivery_projection_allowed
 
     release = resolve_current_release(root / "papers", base, project=project)
-    legacy_projection = legacy_delivery_projection_allowed(project)
+    legacy_projection = native_delivery_projection_allowed(project)
     unavailable_release = (
         root / "papers"
         if legacy_projection
@@ -225,7 +225,7 @@ def write_delivery_manifest(
     workflow_id: str | None = None,
     run_generation: str | None = None,
 ) -> dict[str, Any]:
-    from factory_core.phase9_delivery_fence import (
+    from factory_core.native_boundary import (
         delivery_side_effect_commit_lease,
         require_delivery_side_effect_authority,
     )

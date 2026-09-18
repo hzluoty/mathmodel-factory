@@ -1,0 +1,1451 @@
+{
+  "schema": "paper-factory-source-split-v1",
+  "source_commit": "60bb61000f25912b648098d12059666f621f2d05",
+  "archive_directory": "~/paper_new",
+  "relocated": [
+    {
+      "path": "STEPS_original.md",
+      "sha256": "733f515c3d33eed2dd1b63f46c572e117fddc62b744bf064e2b43b34a87c2561",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "analysis_guide.md",
+      "sha256": "137f11ae871494d3a70e2eea63da0443b2f4fe29befc8b5fdae3a6530ec728ba",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "archive_tools/archive_safety.py",
+      "sha256": "fea1f1e8ccd6514702d9c72c19753b160269f8d1d91e88ef576dd83da65a43d5",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "archive_tools/build_deterministic_candidate.py",
+      "sha256": "01606fa2ce6f5f1aa0dfedc207e742282e72d14792f648aad1dbb869bbaf1092",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "archive_tools/verify_candidate_zip.py",
+      "sha256": "de5ec1bce845d8dde4841353699f6c6246c4c9e9d1f1f2b55e87bd5b62196c5a",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "bootstrap.sh",
+      "sha256": "faab2eeb228088c1091d68ff8d4fd6a0ce2264ff87bff5cb9c19670ab6e5025f",
+      "reason": "Experimental entrypoint / pause policy"
+    },
+    {
+      "path": "bootstrap_phase78.sh",
+      "sha256": "d94c584de4eb601da410116971a09cd9b33b2a92a5daff1aab47c6da63c30751",
+      "reason": "Experimental entrypoint / pause policy"
+    },
+    {
+      "path": "docs/architecture/AUTHORITY_SCHEMA_V2_PHASE2.md",
+      "sha256": "1390b81526e782f6cc22b8fe1c96a2293be50019e252239c278a65f591acc75e",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/CLASSIFIER_IDENTITY_M03.md",
+      "sha256": "4968bd1a2769be734d286e37c3e5456c7cc53a1b243cc1edf2d3362990d0bcc5",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/COMMAND_ENVELOPE_CAS_M03.md",
+      "sha256": "16fe817dc7b977600a675e2131caeb0148eec545b2f4e2733c5d149fb55605c9",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/M03_SCOPE_AND_CUTOVER_BOUNDARY.md",
+      "sha256": "bc2a158a390426f7a3ac1c3a67e70f0e14849b6498444a1bbe8cb887d2250513",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PERSISTED_DIRTY_OWNER_POLICY_M03.md",
+      "sha256": "7eb64861728c75a5b4c733c6160793180c29a4111835c5e55c5e24ad6ff7b9bd",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE2_8_SHADOW_INTEGRATION_ACCEPTANCE.md",
+      "sha256": "64582936d3e85921ba6dcbeae6bc36beee2fcf6bb3396a00b25c3c4c0ee176d5",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE2_PRODUCTION_AUTHORITY_FOUNDATION.md",
+      "sha256": "df18eb9f213e9d31c779a56cfceb72d1655a75be311440cc5b652cb2dbe17b9b",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE3_ARTIFACT_REGISTRATION_SHADOW.md",
+      "sha256": "d6c9447fd2b30acefffe6dad108104fa4b43747c4347ace6cfd114afc7806821",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE3_FULL_SHADOW_PRO_AUDIT_20260827.md",
+      "sha256": "91c0a9b3213a4131f6d7007156d8526c9e135100c9f297b74ba6b3780d3fb6ee",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE4_8_FULL_SHADOW_GAP_MATRIX.md",
+      "sha256": "a133cc5e993fe3620d399e0bab58ae43d4db3700771cf2a9db48ee79935b096c",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE4_DURABLE_OPERATION_SHADOW.md",
+      "sha256": "7686cb5c26e7e6b2ebfd534f059d4bc2b859a14b1cfe7ee4d0e10cb3fc0fa8cc",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE5_PAUSE_POLICY_SHADOW.md",
+      "sha256": "b081d8ff2bf3b0cb9956fcc29ba72f52a2a2a6513a9435819a7fa787263e7d89",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE6_PROJECT_SNAPSHOT_UI_SHADOW.md",
+      "sha256": "0b0f02bc7e67063d95776b26bc90a8e838cf6c20a7c6449f2e0fe4a305e5e1a4",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE7_8_DURABLE_FULL_SHADOW.md",
+      "sha256": "9bfb18005a3025d8bf54f300a2fe503e04bbfe18c2fdcb95eb1805b5a6af3ba2",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE7_EVIDENCE_GROUNDING_SHADOW.md",
+      "sha256": "73e6eb853e7c89171dbf54c13759bebbee2935cd2c1918baae47b01b34770ec0",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE8_REFERENCE_EVIDENCE_AND_EGRESS_SHADOW.md",
+      "sha256": "66843e4677161a1b60d1566346ee21b020e1444a7f3ca1224ba4ae14f5af4f79",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PHASE_2_4_VERIFICATION.md",
+      "sha256": "8b315510ecd4450ec1604358d006b772bf56810437c6e258a2bbaf41a32867a1",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/PROJECT_SNAPSHOT_V0_M03.md",
+      "sha256": "3a7a1dae48974ca320dc7fb40ac12ad71068555513046987d82b21eeca4b4595",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/SHADOW_SCHEDULER_M02.md",
+      "sha256": "4fce585fa39425b988b65776ec8c364b868d4c5d718b6370d3e097594352e9a1",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/WORKFLOW_CONTRACT_BUNDLE.md",
+      "sha256": "4f6598f010bf7d0e2f44712547af050cd8ff3f0c9f69b9a2c7c61cfdba9876be",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/application_writer_allowlist_v1.json",
+      "sha256": "899614aa5f0101f523f3e62172c1704c120074392f842e9ef6524f8702dde6f4",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/architecture/decisions/ADR-0001-phase0-source-truth.md",
+      "sha256": "69adec5fefc462f5bf92256f049796a8873083879db0cfcef75617d76d9f0a97",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/AUTHORITY_SOLVER_POLICY_ROUTE.md",
+      "sha256": "be1fdb3ee76f62e6180ad2f5be42e5117cb77d81a4626a267d251468929c6f85",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_ENTRY_GATE.md",
+      "sha256": "10ac303caf3b99c8ff88f5435d4c389c6b39b8a0ae0d7f1805358e2135a94c72",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_FORENSIC_EVIDENCE.template.json",
+      "sha256": "1c1e185ab951e4cb0082f8fadd6afd7d5ec312b00f96bfa5001b0d7cda67c040",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_GAP_MATRIX.md",
+      "sha256": "5dec25c6416a679e7910c22ac15fe645d9e166a222bc131ea3c8df26cc93b8be",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_IMPLEMENTATION_AND_ROLLBACK.md",
+      "sha256": "4a6fd6fca4d1122dd7f71d93a0e35938b57a65c55ae8b2c89016712aba488073",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_PREP_MANIFEST.template.json",
+      "sha256": "36b5dd91ae93a1d33897694cff39e4b6da97ee69ad12e3903f7097aaa9f9b5c7",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_PREP_RUNBOOK.md",
+      "sha256": "7cfe4035ec3e9a65a389621803c00cf86c7ae7abb4fdf8090e5e4dd84380eb0b",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_REQUIREMENT_IMPLEMENTATION_TEST_EVIDENCE_MAP.tsv",
+      "sha256": "9d5492024c74c056ad528b288b9ae0344d34e75c03d324c5de0e1769b8a6ca85",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_TEST_EVIDENCE_MATRIX.md",
+      "sha256": "25c7dd7eed0729b424f0ba72ba8f8fb8968dc9c954ecf377861109a181c9dca3",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "docs/operations/PHASE9_TEST_SUITE_CONTRACT.json",
+      "sha256": "0d9427232a1abe13a4d9d1be4bf0e75ba0cb6ae97f62b5bb0809b5c9b838f6f7",
+      "reason": "Experimental architecture contract and runbook"
+    },
+    {
+      "path": "factory_core/adapters/infrastructure/pause_policy.py",
+      "sha256": "c31dc6d95bc09b96ce53e3b4e6db9891549079cb9d6118e6ee6828cd82e36a03",
+      "reason": "Experimental entrypoint / pause policy"
+    },
+    {
+      "path": "factory_core/adapters/legacy.py",
+      "sha256": "9a764b37e6d5b8cb71c8a844c042ce6bdfe917ea3becd0230a128cda128a1bc4",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "factory_core/adapters/legacy_runner.sh",
+      "sha256": "127bf526556c120ef0a1cb9306f7fbc42d14d3cd60a40f8f2201a5ecad8a9109",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "factory_core/authority_envelopes.py",
+      "sha256": "489e944c4bba89c6e01f4dd1668b79491dba07c575cf84c40ed4998e5e0ec2c6",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_operations.py",
+      "sha256": "ef99363cf1f6c19a4c41267c09844b1fd0dcefa9c6e0615d72f23801658db3ef",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_operator_workflow.py",
+      "sha256": "3fc95a49c5ce143a91f8787fe61eb7abc85275fe9bf46400e8e615c4623b89e3",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_outbox_delivery.py",
+      "sha256": "00b288f38c7c9c73d0bb31de33c7e290ab1a6af801c0930be7dfd790a90e47b2",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_production_schema.py",
+      "sha256": "474e32e30058573d6b2804d5193f58a077d5cb1a58b0fb2891fcf4de32bf0695",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_production_writer.py",
+      "sha256": "9712a2640cbc50f2af434e1083ca0ad105c669e7d0d5650cd9e3505f9b445b3b",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_read_repository.py",
+      "sha256": "1331066c670063a5b5d73819abde5852b15004258df27481a1b7e49847e2f8dc",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_repository.py",
+      "sha256": "f0358e90cd66f8ced83ce71f18a2d374a84309ca4ef188d62fdce929d9f3dbcf",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_schema.py",
+      "sha256": "c0cad35ab97b1e282b6229b6e97f7f6c54601fa2dfd79a7631296bb73beede97",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/authority_solver_policy.py",
+      "sha256": "2b4886c39e7b37a502fa2497fca262911725b44c95b264e7ca19ebe8e6062663",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/canonical.py",
+      "sha256": "abffe29f43129ed69ae41e1eaef80d11ab80253d29da5604d6054b1d434d8de2",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/classifier_identity.py",
+      "sha256": "07c0b505442efc3dcf100cb85c59e53f4aec154806bd31dc444d42085c4d139f",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/classifier_implementation_manifest.py",
+      "sha256": "4d6d3b1f004d4adc3e708f019d97215ad6156c45de6b02bf042e8e5ddafa1693",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/command_envelope.py",
+      "sha256": "707a178dbb3e225c93f6eaead55d48530ccd78694e8e36e8e5c37e7aafa6621e",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/contract_pins.py",
+      "sha256": "1e1f46a851c5d5661b71abd4432c1c768367e52a0db641f98e2e097b87a44475",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/data_egress.py",
+      "sha256": "1e8079272e8d2b6cbfe49ff9f751b139b6c4d98738ec81e2956f947f8e8b5ffc",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/durable_operation.py",
+      "sha256": "69b2eb19afd4b2777797e980931b1e8eb61745008f42e41565aad66dcc9c2aa1",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/fd_ownership.py",
+      "sha256": "29c56f67a1d675664514ed09169750fa2255692ea52cacf82353d29e61983617",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/legacy_classifier_compat.py",
+      "sha256": "615d913ce6abc7b1a5bc0a03e6880c2a8aed7dd81ac576fe6cbc6ae242465517",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/migration.py",
+      "sha256": "6eeab44d62fdbad87f68a8a833df827da1ec65888e8106dacc03d606805d67fb",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "factory_core/owner_compiler.py",
+      "sha256": "ff28e3e7333c4457c27e30022358c0d8c35e3720952b273d3368a967cb417fe4",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/persisted_dirty_owner_implementation_manifest.py",
+      "sha256": "5ec44b8259f67578a5bba2719a0e866ac4da701928ad1668f372d67de1dcd401",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/persisted_dirty_owner_policy.py",
+      "sha256": "a42acd3be78558a3f90eb8f29e3770fe5ab1856298e978290ddf36d342ea8220",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/phase3_artifacts.py",
+      "sha256": "b91a9b669269cfc626349f181e5cb160c2dec47dc70cec9767fefebe4c9b704d",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase3_shadow_runtime.py",
+      "sha256": "06823af97178252b1d6eaee25cefa15cba400df35e2fbe4bd9a0789f69d43d30",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase4_shadow_runtime.py",
+      "sha256": "03d9ed2bfaf67a8da7d4f3da17fa60cdfb296710270ea24bfd4cf4cf7a5e00a0",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase5_shadow_supervisor.py",
+      "sha256": "69834a553917ddaef1a7988d8faf3e4e82e625cef7b50e976dbc02619eb1895e",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase6_snapshot_grants.py",
+      "sha256": "b7dffb1f5a05d9a7d922131bd682ff9047250cc3289533b2e42a1302a5457cdb",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase6_source_assembler.py",
+      "sha256": "828630be46f93317d2d6ae1023673eebb389652696195a81a9f22bf7cd1f93d9",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_cli.py",
+      "sha256": "f9b2bfaab4a55c3fdf757366b628006fe84ca7b18703bfe998a083926c158ba9",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_config.py",
+      "sha256": "b6c26a2ea77b7dcd1923873b7cc505ee39f849cce2f31feee4710e59a20acc94",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_current.py",
+      "sha256": "cac662e6523c909793ac04789fc71f351691f3d27a13396a9f77defa5981db97",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_deadline.py",
+      "sha256": "93940bcd8d82a3a835ff5db7bf1e71121747dd66a5ed1aa32ede8e9ae202e0d7",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_operator.py",
+      "sha256": "33006b66628d4bf78c642c5724802c95275b4f53be12f0961614ef6cd13f8ff2",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_scheduler.py",
+      "sha256": "cff7d6f9dd836fc803d9d22213aa3f0b7219d8b8b905727efff217a85c4ac11a",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_service.py",
+      "sha256": "9b422331660c9aab00a0bb125df7eeb449549e22d4d863ef432beeff88fc9f15",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_work_ledger.py",
+      "sha256": "9a1bad5a9b41ddaf8d0e5876b38379f58259ab861b5d4f871afb4f7183dd7b2d",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase78_worker.py",
+      "sha256": "c206259bd6537c1da762cc1b93e2055fb264d802456febf2beaa379fe2ab946d",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase7_grounding_runtime.py",
+      "sha256": "7db77fa2d7a26a2d3023d8516f05791c348d6f2a45e28dc46f4ee596f2ef60e2",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase8_evidence_egress_runtime.py",
+      "sha256": "47673e6d39526211c843cdda4589b2c8327f579cccbfb6973534ed2b207da38d",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_authority_lease.py",
+      "sha256": "566ec5eca0562eb4d18093f84deb3473575f48203e87d4065e83f0c17daa426b",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_config.py",
+      "sha256": "f4fc56bbc01e03e7b2b67180945118f2509f3a9aa3cee63d1bdb00414430c1c8",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_delivery_fence.py",
+      "sha256": "a970065441059c542e41af1d61a1b328e3ab0f0c125f7ebc51c4a69526b4d1f9",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_entry.py",
+      "sha256": "59317140e685a150e08e77d7e418a1a983f40a5a7bf6571c5315d36eed586d60",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_forensic_replay.py",
+      "sha256": "4620f70d299768550e5b727cc5f9458ddc4abae18d3294a3a7d1c689ba5e6f42",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_p0_evidence.py",
+      "sha256": "6c6af4be146ee593f43371ac0cc59d7405f7362699c6e149277cf77cd145a1eb",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_provider_gate.py",
+      "sha256": "8a0df6511e44923e76ce0b65631077f9ee6f27d774ca41abdfa1edc4f11955e2",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_provider_identity.py",
+      "sha256": "033e41340d7fae0bfeb14ae3c2882142dc616b1285f2e032870a13e601058c1c",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_provider_sandbox.py",
+      "sha256": "34310a718e4a097840953f644bfa727e43a1620488d9b49a314c37540be33628",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_replay_evidence.py",
+      "sha256": "cbad29fe1da39de5b22648fa622ed21df9c1ac13cde1d950cb7e99d21aa854bd",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_run_generation.py",
+      "sha256": "0f2606ecbc3e8eb044b590c419aeb321544bc156e083d85c353d880d0921d054",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime.py",
+      "sha256": "62af4b6052ba989a41782c265a501870783a1eccb5f6a9652a47ae000aeff920",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime_authority.py",
+      "sha256": "5aefba21a468966de68406bdb91cfa86d2c81c8c5372aa0677706cd21ad020e9",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime_coordinator.py",
+      "sha256": "d8fab4dfb78ca2eb1353817ab51d77d6806f5d746b4db0c0648a26015b16b291",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime_export.py",
+      "sha256": "17459d2c940c35963b1da716b44e0141cee4d88c3c5074348a1a1169ec5f324f",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime_probes.py",
+      "sha256": "6b1ed5a991f2d24a98a04d50c7297f08a02678fd811fc6923e82ea8ee4a37d57",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/phase9_runtime_receipts.py",
+      "sha256": "92551d100cae29cb8fff20ac22cee3d9c6edd6ac141f3c8ecb50695048708794",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "factory_core/project_snapshot_v0.py",
+      "sha256": "d28cbc7682a3190aa203b9d7f23007d5acee85fc574b079ebcd04965dfdcee6f",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/reference_evidence.py",
+      "sha256": "245d5d1b7a6eae8a06f8e62e63bd8fa46b17a60ea5236b658b633dc0660ebab2",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/reference_materializer.py",
+      "sha256": "3880f15f52032306223ac84d0fbc9b0a0616f054b081e0f053a4c09f2919b332",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/shadow_scheduler.py",
+      "sha256": "346e49f9327274343165becdb42db4abf55e081daed38a1c2156a8baa048d19c",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/solver_policy_routing.py",
+      "sha256": "fb3ca16dbaea6de4a52dbb02a8353a59e145630d18ecc0b9e070bfab0d07284c",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/workflow_contract.py",
+      "sha256": "9cd4d2da7fcaea70d8bd726d7e835e9273d179cf77e9eb6d762ea6abe1192218",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "factory_core/workflow_contract_v2.py",
+      "sha256": "a2c55195048ce415c669040cc77560111b7d61d20f782b8078329930b425efd5",
+      "reason": "Experimental architecture foundation"
+    },
+    {
+      "path": "legacy/shell/launch_agents_legacy.sh",
+      "sha256": "57952ec7d432a824c875804ec4a204981b47eb17a3506e2bd33a1509d061eb67",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "legacy/shell/project_ctl_legacy.py",
+      "sha256": "445c66957b2b525ef91fe6d82303d87d18abe59a451c7f4be2680c8bfe7816ad",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "legacy/shell/solver_submit_legacy.sh",
+      "sha256": "da9f405944f0411f4f24447f06be5b5a29627b3bae5ca03e325aa989bdab7766",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "legacy/social_science/README.md",
+      "sha256": "ced86570cb836a2bdeaf3c01817c3118c1b9b657906659c0ba44feb7988e2e2c",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "scripts/authority_operator.py",
+      "sha256": "375cef0c4e1536762a616888bdaff82986af56ac9a4132a6323e6ba155067d01",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/bootstrap_pytest_outcomes.py",
+      "sha256": "b91b115ccd0141b0785972346fbb67127a2fb2c5653c50ecb12949adca64f07a",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/bootstrap_test_contract.py",
+      "sha256": "015250c38e512e32c69cda771119f6bbeecde64f8488dd4a46b98398fbc564f9",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/check_phase9_delivery_fence.py",
+      "sha256": "260bb89599234a144d002b88975b69baffc66431423f6405266baf72c6589bb7",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/fast_forward_after_false_reopen.py",
+      "sha256": "8334eb66033d61dc534b54810f465d5375ca513414556092148add4c62f80fb8",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "scripts/phase78_pytest_outcomes.py",
+      "sha256": "e2c381c9c642372752b1e6c809d4e07aa5f112f201d47934662db01df41dd649",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase78_test_contract.py",
+      "sha256": "32f47185183181fb32ff36592f36fef616f99166138ffa01e1ae95c8fac6c7ac",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase9_authorized_runtime.py",
+      "sha256": "4461e43d20fcb363ff077d58101cdd1e9a7730e8354aa0735281b4aa21264aae",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase9_entry_gate.py",
+      "sha256": "ac5c0faef1a9cb892b9795015d91208f40e4117ad8ed39d895aeafc1c349bf82",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase9_forensic_replay.py",
+      "sha256": "56562c7fc14122c4af680a3f038ed5122f8fc926d7c9aed8a5d7691fc0007534",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase9_prep_manifest.py",
+      "sha256": "55d7b1b7e8a184aefb4ce88c478aa8f2cbcd8e1777a7bb4089b2c42d5d233cf8",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/phase9_runtime.py",
+      "sha256": "9c6c31572ad9ff46a31892c1307b84fe6fff9f727ac17e18b1e48f12812090e9",
+      "reason": "Experimental operator and test entrypoint"
+    },
+    {
+      "path": "scripts/runner_diagnostics.sh",
+      "sha256": "ec3aa69fcf3b148b87ec8d269b451960a657ab0cef19f97edb590f07bc051615",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "scripts/runner_state.sh",
+      "sha256": "e3afc307dce46e784bf45031e8c2cd0849166bfb25f3babaaf99bfdd6865f8bc",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "scripts/state_manager.sh",
+      "sha256": "1698aac63ea047ce84cd6ee0f3d4b1b3de57c5c19f7776aa8668d11097a40fd5",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "scripts/step2_early_stop.py",
+      "sha256": "608b30c184b824ca11e307c41cba77b50c02ec08626804cd23f54c0c9f56b4f9",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "scripts/step2_resource_quota.py",
+      "sha256": "07735d5dc85781aca19bd25c32cfc7c4a88816148693fb91d106284b8c136b2c",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "shadow_contracts/__init__.py",
+      "sha256": "3905804759313966e13cfaf451003c39e72a17704ed7fa1fce56d956a62d1175",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "shadow_contracts/artifact_registry.py",
+      "sha256": "511a73f9e1a2bcaf3044eac196af06ac4d017fe082c53f139dd95754263bac1e",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "shadow_contracts/phase2_8_integration.py",
+      "sha256": "4d11e795f5263162f9349cd05bca711ade130b12090a76673c91d03533d2fb37",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "shadow_contracts/phase3_foundation.py",
+      "sha256": "1a079c334e4c4a2476fef43f1f8d7b0e58b3781f0903d06a9d423a7954ab569f",
+      "reason": "Experimental Authority / Phase runtime"
+    },
+    {
+      "path": "stata_submit.sh",
+      "sha256": "a9f3ec6d935aa8ab81b4959bbb372fa621cc82d6b1b46feac9b48f4fa5bed855",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "stata_wrapper.sh",
+      "sha256": "a0d326d2fbb43cee6b968531608f89a71f4015cf60a6ac7113cf0df6fc0aa512",
+      "reason": "Retired workflow implementation / historical migration"
+    },
+    {
+      "path": "tests/fixtures/m03_classifier_identity/golden_identity.json",
+      "sha256": "99345f66ca498dea89b2cd6c0d4f242003ee563fc6f2f7df86f22e70e827336c",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/m03_command_envelope/golden_identity.json",
+      "sha256": "b234d1d3826d028b28fe7dc05013577ac66041776e24e3f0b3b076ccd6c95487",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/m03_contract_pins/golden_identity.json",
+      "sha256": "70820c1c4eef6fb38f5523c1f41de162447670989eb90a62c39e533a42c8d30d",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/m03_persisted_dirty_owner_policy/golden_identity.json",
+      "sha256": "ac0343d7aac0c89f4b31305a050c3712c3067037eedb9c6a0cf95d2b301db229",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/m03_snapshot_v0/golden_identity.json",
+      "sha256": "8fde5626c1f1ab05e97f6ef3ba820489247af63965b5e2c5a79dfb2dd76f7e3a",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/scheduler_shadow_v1/golden_identity.json",
+      "sha256": "8b90c2b43187e3fdba808b6fa5b534c3ce55eec088897fa583576cc26d8e5829",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/scheduler_shadow_v1/parity_cases.json",
+      "sha256": "9cf63c326c8ef76aaf83cb4b2a2820093f2d423625c0432f6327ac0239c198cb",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/README.md",
+      "sha256": "e4f85e82e372e5da3a080f6d84aef04160dc6e1914b63c1a55e075d997c17b5b",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-DIRTY-001.json",
+      "sha256": "98630cdbfb7553cbdd7afbdc7c2c971427c4f83026a522d7e54a08938cbabea2",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-HUMAN-GATE-001.json",
+      "sha256": "c73b5b48a1caa59d257b7743215f31be23356b5264b37dbf5b835d422fe0eda9",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-NORMAL-001.json",
+      "sha256": "0fbc95f1e043c0de7b43a09656f7ca5ac838b3a1ad1e98735fc748f003ac72e9",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-PACKET-REBUILD-001.json",
+      "sha256": "38251933a556a363374a4997cdcfeb19b7ab8ac784acd839c0ecfefc15a113d6",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-RECOVERY-001.json",
+      "sha256": "7ef8299dc0b6098ca8d4fce45000b1070b8c89137d5a118fce09f6fda8000744",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-SEMANTIC-REOPEN-001.json",
+      "sha256": "e7f32bc99212f950857d78c1bc99bd09a0f80eae4728a1bb2e2fa0946cce70d3",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-SOLVER-10OF10-001.json",
+      "sha256": "afb322fee3ad0a92048aeaf6bfc23ea5e00f5e956a8ff72d5258e270f088240c",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/cases/V1-TECHNICAL-TERMINAL-001.json",
+      "sha256": "7827192e7c6fb11f46903508c8cb54f3813c0b99a8979495d2f99c6b7dc5dc1c",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/v1_characterization/index.json",
+      "sha256": "e40faf484a880d0bf4927cfc2817120b16c82e4e6bcacb2b26496b1adaf742a4",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/workflow_contract_v1/bundle_identity.json",
+      "sha256": "a011dbee968925b92765dd40ef95b846738ac91e1408dcf9bc984700c7e151be",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/workflow_contract_v1/owner_diagnostics.json",
+      "sha256": "e27cd45ca9b68ad415b656c10ab21e0fda66462335d944142e78e9e3a228f3c9",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/fixtures/workflow_contract_v1/owner_parity.json",
+      "sha256": "52b2ada3c5425fc84357e361d21c4d12563966f47cb791f449c0d22ccc45975f",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/authority_production.py",
+      "sha256": "208b6f9dd167446eddecaa6a45db5e1896735e66d5dbc861158b246b109f8c55",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/authority_production_process.py",
+      "sha256": "115c2844a405e187bf418111b237f8bdaba62b830f88ca378e173e97ffbd408e",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/m02_shadow_replay.py",
+      "sha256": "8fac0ffbffb97173ce893f06185a8544999534724a2a2e533fde8e6113d8e2ed",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/m03_identity_replay.py",
+      "sha256": "646f9ba331e4ff0fad3f168e2f760ac3a12d0ec251e55dba4426503d60cdc3bd",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/m03_source_manifest.py",
+      "sha256": "595370da143df25c8111c7ad9aed4190d3c96fedc36684a88708de65bf689e93",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/support/m03_symbol_manifest.py",
+      "sha256": "60b1ca8589d357f769b4fa2b44a989cb74dc59f055f7ff931e95fb308fe6a13d",
+      "reason": "Experimental test support / frozen identity fixture"
+    },
+    {
+      "path": "tests/test_authority_operations.py",
+      "sha256": "0a978335b48b53d643906fb5b2fde14ec4af866706cb15c8328513a7e6e9c69a",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_outbox_delivery.py",
+      "sha256": "2f97fa7042867fee54a9050404821554babd0ffe16b638615fc9737ca361e4f8",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_production_migration.py",
+      "sha256": "9fde0e3335012f2cab7cc4951179af09bb194ff3574b64d05f29f98683821fab",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_production_writer.py",
+      "sha256": "14c2e3320e1dde66971a19747f181f4cc58be7e0d241fb73f97430aabb3f7bd3",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_read_repository.py",
+      "sha256": "847be2bdb67aa160e5a526066af3efbfaf3f22c5f42f9465f5a436190666219c",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_repository.py",
+      "sha256": "268c58fd3d05b8a401d1f746d0b7bbe97c37054d6650ecd99570c78a2b2f3f6e",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_schema_v2.py",
+      "sha256": "a5f413091a39344091dc83cba393b881c419223ef14884c0a11fa7d7400dbd35",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_authority_solver_policy_routing.py",
+      "sha256": "06a8edddd2a84de8144c2f82e5eeeeacd72104aa870e2fd8af3945c1ebd2c656",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_factory_migration.py",
+      "sha256": "e2c4f769dd829ac370cb62652406ef806d1afc1c2ff90be87296606ba614e8b3",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_m01_runtime_parity.py",
+      "sha256": "1185a347a2424df07d504ce0a29951d29e78cb69ff3021f96b2be9388582abf5",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m02_shadow_scheduler.py",
+      "sha256": "7b81c61e9b4d7dc2851c251c5d47d91212050a1370c8350610c955386980c796",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_classifier_identity.py",
+      "sha256": "f3aee56e4a0c8d3ac0f2a842104eabe551371982b85dcd2229b5cbc3bede75d0",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_command_envelope.py",
+      "sha256": "6651ceb624df2107f89b0c30fc34b3454ee489dc6a1926843b6763e002fdd21b",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_contract_pins.py",
+      "sha256": "616397cb7982993017b5f0c7fcb7beaf72ab1c0c2f69adfd5a42ed89c0523fc2",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_import_boundary.py",
+      "sha256": "cc4c5781d0ee2ff22198399b4fe21fdd5a8920a55af17f16f116263761970d74",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_no_side_effects.py",
+      "sha256": "e3cfb2292580d04bbad5b2b1d5d26d118d89a225b685bc08450c78924cee7d5f",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_persisted_dirty_owner_policy.py",
+      "sha256": "28c127ae919a84052caaae6d7735851bddf91acd5527e04a53ee7cc6e8aa2ae0",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_project_snapshot_v0.py",
+      "sha256": "c3daf250055f4a315449cd31deaa0d31cbe223a15f15cc88d785112cc1e541f5",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_m03_public_boundaries.py",
+      "sha256": "51b56a8bfd1fd86ab907a693417593e700fde83bef1784a8982802381e6176d1",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_owner_matcher_parity.py",
+      "sha256": "be01b2f31a0829de6d78205624335d0390afd4543a05206a77ebbfd62bb46ee7",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_owner_overlap_analyzer.py",
+      "sha256": "3d220b629e0f3763a7cec2d6a23fb41314812745054773b6236e5c77152acb82",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_owner_priority_scope.py",
+      "sha256": "75c6cdf00e882b84720f0d087b563669127ed6502e7cd363513b8fdb0f62b4ee",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase0_architecture_baseline.py",
+      "sha256": "69a415c7ae4032f08099e114e501b24f68a3a109180c2a7adc93d747022ee7de",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase1_8_durable_continuous_chain.py",
+      "sha256": "c3750cc494c0eabc1f0342981951a1249ae2eb689e5c10fe9f1e819c7d9e1f11",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase2_8_shadow_integration.py",
+      "sha256": "9af4a6348372f354d65a166d5c57eef146c4ed93a68a27ab15ddebfedbe3cfbd",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_artifact_foundation.py",
+      "sha256": "c0390d23374ecdbfe833755e126875b324d5e058fbcc52c63d1764b66f6ec521",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_artifact_registry_integration.py",
+      "sha256": "ec0c68fcff1a548ab808e1d4cc28ce9e14593acbc4616398456da1b21535aa91",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_artifact_registry_shadow.py",
+      "sha256": "ca955473595931390247e918c3bab7cb3e806ea030ad79b611115894a68c4a23",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_authority_read.py",
+      "sha256": "c08b9e2d71261d458f92464224d3b11bc29ad5cfca95c8d5fe09b1d2761862d2",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_authority_writer.py",
+      "sha256": "f7ceda04db51eacb850759cbf910e084159a22ccbe95903a45794ec25c4124bc",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_packaging_isolation.py",
+      "sha256": "1bdd06cdea1931cda523277b977aa1e9a0af24d33fca2fc77df96c3d56d82056",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_pro_authorization_regressions.py",
+      "sha256": "a7d48a2342a3b3fa2a6ccb8b4f7f9ce0e2661abc10d07b7ea2b760cba646867e",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase3_pro_major_regressions.py",
+      "sha256": "f5570c11afb841a5d52e0e380fa9576b7ec76eedbb63aa3c0760945dbd39004d",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase45_f1_historical_closure.py",
+      "sha256": "b5fdeec812203cb7b13e617a37a628ee3ca93ca1aee12d95022f403de7518084",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase45_fd_ownership_atomicity.py",
+      "sha256": "88ec65e221b608dfaa09230a1dd17c5d6f67cc030e62532224a88ff78b652ff3",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase46_bootstrap_contract.py",
+      "sha256": "240e41e919021c95b5656150a518e881f318c8cd2d1498c6bd1f6fe924d2ab19",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase4_5_shadow_integration.py",
+      "sha256": "027bacf580cdac69d73fbc1b16d274d423241068778c510be2ea89c7e4a6e48a",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase4_durable_operation.py",
+      "sha256": "29873fa023da9550f7f3a53c2b195e8b8f48aa30901236ab7264efdb8bc39ba0",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase4_durable_operation_integration.py",
+      "sha256": "3c273a2c6a204fe5a7d20a91d3620b192e7bfb96a6b90742b5dc27394ee31c73",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase4_shadow_runtime.py",
+      "sha256": "034b4b0e3bcbbf5051dc94267b6ef1ca45a4044261b8f0cd514c678d77b98838",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase5_pause_policy.py",
+      "sha256": "76038aa78072bff1a313e8eda8dc391ca78c75642c2640bf86393a57c140747c",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase5_pause_policy_integration.py",
+      "sha256": "0c4be9c8f89d89877bfaa469e6fd2b9a09b9d1e1470fbf07aabcb4c85a4e4949",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase5_shadow_supervisor.py",
+      "sha256": "103e1855055354b2808b6387e95fdce91fc1ccd897222ef181c67ca1c43040b9",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase6_backend_security_regressions.py",
+      "sha256": "5a6cc052d66fb28046e02ad46086c672ebab37436fbc79aa0fdae81fb038077d",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase6_project_snapshot_ui.py",
+      "sha256": "3abac79f0d3b57b347c487cd8e83b2233efec48fa18c3d8abbf99d380f68d732",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase6_snapshot_grants.py",
+      "sha256": "9139436ae5d76ba7d225325336c175da17af3dc99d8ce3deaaf7a59c62a77c3a",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase6_web_integration.py",
+      "sha256": "8ec32bdd4aceaa94a766ddb29343efc4f103602aa0d8b02bc572f3ff46b890cd",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_bootstrap_contract.py",
+      "sha256": "62763efb8967c83bd35abd5cd95cd6251abf362bb69520e388aaf93205718905",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_cli_gate.py",
+      "sha256": "c444bf21f0289e6991e02af6bdc0c1a5924532b7ad6a68bc9e7fa4a195962eed",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_config.py",
+      "sha256": "04eefb52495a9d59e432d687a3765b03f22d72b63185d210cbd2f7cc88118cc6",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_current.py",
+      "sha256": "862ce2a5a66f9bffd5412618c856f00ccabe22d780bee7e81f54a0406971d674",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_deadline.py",
+      "sha256": "5888a4afd007604d10b645bccc8ef2a5693dd0767abc604af7097a5bd8a9fa6a",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_enabled_e2e.py",
+      "sha256": "c86bbc91edc1cf1a6c52a148096efd574e3e0e1f2c097c0190c568793223359f",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_phase6_access_proof.py",
+      "sha256": "c73e8cd117920356eb346d4fe076901ee2c66948bd6cfe6df7e61058ab2e4912",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_web_api.py",
+      "sha256": "25a5046610cf6e7bf254147c93a8eb2b7f99e25b3bfb6e5cba1242f6bbdc03e6",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase78_work_ledger.py",
+      "sha256": "aeae5ff8138585078cd0f0377382afe4e2f483c5f2772d3f67abb80f2dd6e2e2",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase7_grounding_runtime.py",
+      "sha256": "7bb386fa83b8922991b8be76dc765d76e6964fc3b4272d4309e57184e3d71e58",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase8_data_egress.py",
+      "sha256": "f71d82122cd7079d4e25307ba9777366175474fa03f3f11c28f210ddda163973",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase8_evidence_egress_runtime.py",
+      "sha256": "4eb040d57826effc8858f48455e2adb36ec6749a7168c3102a840bd4fab1185a",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase8_reference_evidence.py",
+      "sha256": "58a7922fe3e8a4e21ca4d0b6d78647de31e75478c33f15d836f9af9340462b27",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase8_reference_materializer.py",
+      "sha256": "692a52b48e7e9d93364887b0e40703964fbee486ca2071b38deebe6510a0aade",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase8_shadow_isolation.py",
+      "sha256": "c9ceb2813b32117297feb37b820406c305a0ac84f5bf04c22ed5af31034032ee",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_acceptance_probes.py",
+      "sha256": "ec41139c22ba43dbb20bd8f799cd6aac068e08fdeeb60b68e8757a44393e1de1",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_audit_bundle.py",
+      "sha256": "b889d57ca939118c71abd461272143d5972843f7d23d9d591fe5390955ea3843",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_audit_evidence.py",
+      "sha256": "ffcdbc495b985e9430cfe3fb028abee2f9d7b64bf1e7fb7c17fb9324a53cde48",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_delivery_fence.py",
+      "sha256": "d30b80f680fdebc80af742fd4a435d0e24510d9c3edaffaba98d62ee552bf594",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_entry_gate.py",
+      "sha256": "2abe52706a7a8a9080a13aa8f9a4e407b8983f09d1556b38c3246c70a08796ad",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_forensic_replay.py",
+      "sha256": "1ae78264d72270094aca6c0e3a22aaa69ea6ac3d05f22cc958a266123b81fc35",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_p0_evidence.py",
+      "sha256": "e1a5b9464b12946de73255eb654382ba35868245f3223e201d6c55e6e0ede034",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_prep_manifest.py",
+      "sha256": "29b54334ae0e6a6c0ea1a85a5c592676589adc8cc44a301ae4b1c60b1c8ae508",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_run_generation.py",
+      "sha256": "e3d2f9cb035c7111236edc2be773dfd5e96912f249ff7b6ab0d7fd4c6f580015",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_runtime.py",
+      "sha256": "1cc86199bc7bd34a1dd1f3b53e27a3f66c6cb98f3cd6e93cb94e717250d19970",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_phase9_runtime_authority.py",
+      "sha256": "cd56770fbb0d93c0d4d43e42a12959bde01fa6c9e772a980c79be99f3e4c297d",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tests/test_run_paper_step8_5_infer.py",
+      "sha256": "a618c3eb9ff34306852f9e31cefe9cdbeee3c2f3e8d29e7fb4dee7b9567ed96e",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_runner_backend_canary_order.py",
+      "sha256": "9f1aee718537d6a6fa37d2097f6c46e0471a9630701d701cd424951261de5b63",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_runner_diagnostics.py",
+      "sha256": "5b2ebf91a29d4bdae0d3b5ee599251dea4971031f5eba909c9d5d92c74a7d6b2",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_runner_state_shim.py",
+      "sha256": "8b730d028e2f6ac1e419416bb1d1c822fa3f9acadaf46d0e4b882e23ed066824",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_solver_submit_legacy.py",
+      "sha256": "86239c73731de31e73b2fe3d8a3f0e262b6d809a43e9df1ea0f9b94e70cc90f4",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_step2_optimization.sh",
+      "sha256": "e94616644212e59be3694c08073d2549d86d488630978e219ddccd2a9eb736e0",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_step8_5_await_state.py",
+      "sha256": "71f848d2615c47aa34efb35004c0a57c1869c74478ddc869e6bdc619eede55dc",
+      "reason": "Retired Bash workflow support and tests"
+    },
+    {
+      "path": "tests/test_workflow_contract_bundle.py",
+      "sha256": "4222640440466e9d98530435123f24dc5dc4ba0c39a9782fbce62309b78f9b53",
+      "reason": "Experimental architecture test"
+    },
+    {
+      "path": "tools/build_phase9_audit_bundle.py",
+      "sha256": "88b405bc66f070cb77d463b5b5a00a22b776f4d79c2f4debb6284573b105cbce",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/build_phase9_test_summary.py",
+      "sha256": "eb4c7135f3d6a07c249cfc187690283fce9158e697763e69c5413a72003a10e4",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/generate_freeze_inventory.py",
+      "sha256": "1c5da745fefc096270ec33e2b4c752f9a987ddf3a86cc575c924e59fffefab04",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/phase9_composite_evidence.py",
+      "sha256": "22653f84cc8066b4382b5fef5502c32b9ba456fcdddcf8a7b3b80471791230a9",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/run_audit_command.py",
+      "sha256": "eee4b752e679f5302bed4cfaef5007c88b2218241af94ff3a713100d90a61b83",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/run_full_repo_with_frontend_deps.py",
+      "sha256": "a7f3fbea0f931bcccbee7521a3250a1c80514ebfbe05a239b54f65dff9523cc8",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/run_phase9_p0_evidence.py",
+      "sha256": "f1ae0e72f13ec5185059486e962272014ab1cf9f591a8b4930b013b21c56713c",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "tools/trusted_pytest_reporter.py",
+      "sha256": "b62163f56ab66c82dd55f6c65aad869c5dd1658afefe85ab9027bb928e4fad9e",
+      "reason": "Experimental audit and source-candidate tooling"
+    },
+    {
+      "path": "web/backend/phase6_api.py",
+      "sha256": "7351216076796da96be430bc3d3216863f227e857778f60caf4d66d8046e2cec",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/backend/phase78_api.py",
+      "sha256": "50ab187ef0228b9a9666d70257136251c741fb10ddc94568baccf9f747bc1ae7",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/components/Phase6ProjectSnapshotPanel.vue",
+      "sha256": "8365368f22c0ff3d59be603e1a0ff66c60971ac7d7091c5b7a7d004c6cf9e07c",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/composables/usePhase6ProjectSnapshot.js",
+      "sha256": "5f8fc3e27fff1eaedb20334cc0db0e6ebff46f2ed2743873815bb4c5f7899c86",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/optionalSnapshotFeature.disabled.js",
+      "sha256": "d925248f8eafe8478556c9c55e32ceec392910a791b440b12dea3c166faf340c",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/optionalSnapshotFeature.enabled.js",
+      "sha256": "2232bf62315b2ae48610cb35eb7a59966e8a3c72dc0c0aabecac12b7b67b8b63",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/phase6RovingFocus.js",
+      "sha256": "08ee85fdf24668d4ed9b9249332e21c9868652e8ad30a33491552745de60c017",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/phase6RuntimeGate.js",
+      "sha256": "a5277b20e6f1c44fac47180f8e74123c86148f755d2457403736425e0427f48e",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/phase6SnapshotClient.js",
+      "sha256": "8ea6b1e9857de5977b03a93662ab1ca1faf7932ccf0c2de1ec3fc00dc4958b45",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/phase6SnapshotProjection.js",
+      "sha256": "0ca4dc97a6dfb986abe06d022bce2dfef9d74a105d20456a485db945addafcea",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/src/lib/projectSnapshotUi.js",
+      "sha256": "87e9f78b5a456d4455a70a0a59ff1fc877e42e24ff7e3ded8db21ea7ba7cbda6",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/tests/phase6-build-browser.test.mjs",
+      "sha256": "50f5870fe0c7b8ab3ca675a704ca32b41bd1e1e06e376d45a4f27e30d1d6a388",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/tests/phase6-controller.test.mjs",
+      "sha256": "32573b545baa6d07a971fe2efaaa122cb81d4a7ae544ee53182b7f5153fa987b",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/tests/phase6-panel.harness.html",
+      "sha256": "02a98a14151d2a4cf7a985365752a029099a7bc28dbec28d8871f05339be5dd3",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "web/frontend/tests/phase6-panel.harness.js",
+      "sha256": "844515e9070c95d98197db33baf3e73fe9ce32fad8d080a0e4379dfb3c9cc977",
+      "reason": "Experimental Web integration"
+    },
+    {
+      "path": "tests/test_gate_inventory.py",
+      "sha256": "d4af8b36576bc3521e3b46c799be4a190a74eb81844b1f99f7fc2aac9876b12e",
+      "reason": "Experimental workflow contract gate inventory"
+    },
+    {
+      "path": "tests/test_evidence_payload_pipeline.py",
+      "sha256": "4d003e2dc51956f8710bcdc401f0ea9762df62531402c46273faac591127698a",
+      "reason": "Experimental candidate freeze/inventory pipeline"
+    },
+    {
+      "path": "scripts/solver_router.sh",
+      "sha256": "e1253806298141dcc3e130934e5b5d65b66308ea440b0c1953afb11b32d3546e",
+      "reason": "Historical shell solver router; Native SQLite policy owns routing"
+    }
+  ],
+  "shared_baseline": "paper_new contains the complete tracked baseline so its experimental modules keep their original imports and tests; it is not a runtime dependency of paper_factory.",
+  "relocated_test_cases": [
+    {
+      "path": "tests/test_factory_engine.py",
+      "functions": [
+        "test_legacy_validator_reports_durable_reopen_target",
+        "test_recovery_does_not_reopen_resolved_consultation",
+        "test_legacy_timeout_reaps_process_after_sigkill",
+        "test_legacy_registry_preserves_step_specific_timeout_contracts"
+      ],
+      "original_sha256": "efd1356ecdc697646baafb6c323bb52d4b5d35f71062342b12dde40758e303b5"
+    },
+    {
+      "path": "tests/test_judge_assets.py",
+      "functions": [
+        "test_phase7_preserves_verified_text_asset_reference_coordinates"
+      ],
+      "original_sha256": "4e0920bed8e0a42546a24bcf75a9ec3ef75a4e4c8a91895d50f90ddc2b652bfc"
+    },
+    {
+      "path": "tests/test_factory_service.py",
+      "functions": [
+        "test_web_resume_after_rollback_uses_legacy_registry",
+        "test_semantic_reopen_cannot_fast_forward_through_legacy_artifacts",
+        "test_full_rollback_rejects_stale_expected_revision",
+        "test_full_rollback_rejects_legacy_infer_ahead_of_sqlite",
+        "test_full_rollback_rejects_pending_content_freeze",
+        "test_full_rollback_rejects_pending_consultation",
+        "test_full_rollback_rejects_pending_step3_gate",
+        "_assert_full_rollback_rejects_pending",
+        "test_legacy_rollback_rejects_failed_mutating_stage",
+        "test_rollback_guard_uses_stage_cursor_baseline",
+        "test_deactivate_rejects_manifest_drift_without_dirty_row",
+        "test_legacy_rollback_cannot_bypass_unresolved_stage_dirty_flags"
+      ],
+      "original_sha256": "69d5542ce83bd3ae37aa34d46751d952bceeb1c69359ac8f8d42e82c6d614bd8"
+    },
+    {
+      "path": "tests/test_cloud_solver_routing.py",
+      "functions": [
+        "test_project_cloud_env_is_data_not_executable_shell",
+        "test_project_cloud_env_cannot_disable_global_quarantine",
+        "test_solver_router_quarantines_cloud_by_default",
+        "test_solver_submit_sources_project_cloud_env_for_long_jobs",
+        "test_solver_router_routes_enabled_long_python_job_to_cloud_client"
+      ],
+      "original_sha256": "ca9b4ce9bc84995824fe0afe70538891c186931a4c6d90b9b03300a9607e4592"
+    },
+    {
+      "path": "tests/test_quality_gates_regression.py",
+      "functions": [
+        "test_step13_claude_is_routed_through_the_non_agentic_isolated_caller",
+        "test_claude_backend_passes_dispatch_hang_timeout_to_worker",
+        "test_claude_worker_has_stale_activity_kill_path",
+        "test_step16_post_judge_verification_does_not_rewrite_fingerprinted_reports",
+        "test_step16_cleans_before_final_judge_fingerprint_is_built",
+        "test_codex_judge_has_isolated_tui_fallback_for_exec_channel_outages",
+        "test_codex_judge_receipt_distinguishes_exec_from_tui_transport",
+        "test_step13_binds_effective_prompts_and_configuration_group_before_aggregation",
+        "test_step13_treats_unavailable_judge_role_as_retryable_error",
+        "test_codex_only_mode_uses_isolated_codex_judge_calls",
+        "test_codex_only_mode_blocks_claude_backend_and_default_fallbacks",
+        "test_dispatch_step_validates_artifacts_after_successful_configured_backend",
+        "test_runner_retry_branch_uses_global_variables_not_local_declarations",
+        "test_runner_invokes_step3_selection_before_step3_dispatch",
+        "test_step4_is_not_complete_without_quality_contract",
+        "test_runner_requires_quality_contract_at_gate1_and_delivery",
+        "test_verify_step_output_rejects_step9_without_step8_5_pass",
+        "test_gate2_indeterminate_roles_route_by_responsible_stage",
+        "test_gate2_model_reopen_routes_to_the_earliest_responsible_step",
+        "test_final_judge_crash_recovery_precedes_ordinary_gate2_budget",
+        "test_final_judge_reopen_state_is_durable_before_main_loop_routing",
+        "test_runner_recovers_a_persisted_gate2_reopen_before_step14",
+        "test_step16_uses_shared_final_audit_and_atomic_release_before_delivery_checks",
+        "test_step16_writes_delivery_manifest_after_quality_gate",
+        "test_infer_step_does_not_report_16_when_gate2_is_not_pass"
+      ],
+      "original_sha256": "7507c16516075feef7007e998a4331bd546bde7367bc7fde343b315b84011ce3"
+    },
+    {
+      "path": "tests/test_load_secrets.py",
+      "functions": [
+        "test_run_paper_loads_secret_manager_for_direct_runs"
+      ],
+      "original_sha256": "17a94b493f8c6cc2be76f739fe448feb5886438103d08723aac3760e8c851d11"
+    },
+    {
+      "path": "tests/test_factory_cli.py",
+      "functions": [
+        "test_cli_migration_apply_and_rollback_preserve_legacy_infer_compatibility",
+        "test_cli_migration_inspect_and_apply_requires_report_digest"
+      ],
+      "original_sha256": "0368b0ddc9191e590f4625675286f1c2e9578b5a0e5bb22cfbb38d6e717b5a4e"
+    },
+    {
+      "path": "tests/test_solver_submit_wrapper.py",
+      "functions": [
+        "test_old_legacy_job_is_structured_but_never_receipt_ready",
+        "test_legacy_wrapper_uses_same_fail_closed_v2_contract"
+      ],
+      "original_sha256": "2f2219358bed77117c6843e41fe286c5f65c0efc9a0a41d757155953e9ad2fdc"
+    },
+    {
+      "path": "tests/test_project_ctl.py",
+      "functions": [
+        "test_launch_agents_kill_delegates_to_project_ctl",
+        "test_launch_agents_pause_and_status_delegate_to_project_ctl",
+        "test_resume_project_clears_pause_state_without_running_process",
+        "test_pause_project_sets_marker_and_clears_runtime_state",
+        "test_kill_project_sets_marker_and_removes_pid"
+      ],
+      "original_sha256": "5fb76c0d68e002855cd4c7d3f1224de32d3c05f305dc28f1e4fe9765063795c8"
+    }
+  ]
+}

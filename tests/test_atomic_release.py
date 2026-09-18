@@ -13,8 +13,8 @@ import pytest
 from factory_core.audit.acceptance import build_final_acceptance_receipt
 from factory_core.audit.domain import AuditSnapshot
 from factory_core.delivery.release import ReleasePublisher, resolve_current_release
-from factory_core.phase9_authority_lease import authority_state_commit_lease
-from factory_core.phase9_delivery_fence import Phase9DeliveryFenceError
+from factory_core.state_lease import state_commit_lease
+from factory_core.native_boundary import NativeBoundaryError
 from factory_core.contest import ContestPolicy
 from factory_core.storage import SQLiteStateStore
 from scripts.package_submission import package_submission
@@ -272,14 +272,14 @@ def test_phase9_transition_during_staging_blocks_release_commit(tmp_path: Path) 
             output,
             stage_only=True,
         )
-        with authority_state_commit_lease(project):
+        with state_commit_lease(project):
             _install_current_phase9(project)
         transitioned["project_files"] = _file_bytes(project)
         return True
 
     with pytest.raises(
-        Phase9DeliveryFenceError,
-        match="Phase9 release requires explicit workflow_id and run_generation",
+        NativeBoundaryError,
+        match="NATIVE_WORKFLOW_REQUIRED",
     ):
         ReleasePublisher(tmp_path / "papers").publish(
             project,
@@ -305,7 +305,7 @@ def test_stage_only_child_phase9_refusal_is_reclassified_by_release(
     transitioned: dict[str, dict[str, bytes]] = {}
 
     def transition_before_child(output: Path) -> bool:
-        with authority_state_commit_lease(project):
+        with state_commit_lease(project):
             _install_current_phase9(project)
         transitioned["project_files"] = _file_bytes(project)
         result = subprocess.run(
@@ -325,13 +325,13 @@ def test_stage_only_child_phase9_refusal_is_reclassified_by_release(
             timeout=10,
         )
         assert result.returncode != 0
-        assert "Phase9 submission requires explicit workflow_id" in result.stderr
+        assert "NATIVE_WORKFLOW_REQUIRED" in result.stderr
         assert _file_bytes(project) == transitioned["project_files"]
         return False
 
     with pytest.raises(
-        Phase9DeliveryFenceError,
-        match="Phase9 release requires explicit workflow_id and run_generation",
+        NativeBoundaryError,
+        match="NATIVE_WORKFLOW_REQUIRED",
     ):
         ReleasePublisher(tmp_path / "papers").publish(
             project,

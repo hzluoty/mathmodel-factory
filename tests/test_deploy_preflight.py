@@ -23,7 +23,7 @@ def test_deploy_script_runs_preflight_for_secret_manager_contract():
     ):
         assert sensitive_key in deploy
     assert 'source "$PROJECT_ROOT/scripts/load_secrets.sh"' in deploy
-    assert '"$PROJECT_ROOT/factory_core/adapters/legacy_runner.sh"' in deploy
+    assert '"$PROJECT_ROOT/launch_agents.sh"' in deploy
     for locked_input in (
         "pyproject.toml",
         "uv.lock",

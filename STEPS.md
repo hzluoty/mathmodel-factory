@@ -6,7 +6,7 @@ This is the math-modeling-competition adaptation of the local paper factory (CUM
 
 - Factory root: this repository
 - Project directories: `ongoing/{base}/` while running, `complete/{base}/` after delivery
-- Workflow state: new and explicitly migrated `native_v2` projects use schema-v9 `.factory/state.db` as the authoritative versioned state/event store. New v2 events carry replay patches/hashes plus distinct subject/result coordinates and aggregate side-table roots; new projects default to the versioned 10-Stage scheduler (`stage_v1`) and also persist the `contest_core_v1` clock, generation-scoped human decision requests/instances, owner-scoped dirty/checkpoint history, projection failures, and Solver idempotency there. Step artifacts remain authoritative validation evidence. Older native projects retain `step_v2` until an explicit scheduler activation; unmigrated modeling projects retain frozen legacy file-state inference until explicitly migrated.
+- Workflow state: new and explicitly migrated `native_v2` projects use schema-v9 `.factory/state.db` as the authoritative versioned state/event store. New v2 events carry replay patches/hashes plus distinct subject/result coordinates and aggregate side-table roots; new projects default to the versioned 10-Stage scheduler (`stage_v1`) and also persist the `contest_core_v1` clock, generation-scoped human decision requests/instances, owner-scoped dirty/checkpoint history, projection failures, and Solver idempotency there. Step artifacts remain authoritative validation evidence. Older native projects retain `step_v2` until an explicit scheduler activation; projects without Native SQLite state are historical read-only; experimental databases and Legacy execution are rejected.
 - Local solver wrapper: `../../solver_submit.sh` from within a project directory (Python / Julia / Matlab / R / Gurobi). Submit with `--type`, `--max-time`, repeated `--input` / `--output` / `--seed`; inspect immutable two-stage evidence with `--status <jobid> --json`.
 - MinerU PDF → Markdown converter: `../../scripts/mineru_parse.py` (requires `MINERU_TOKEN` in repo `.env`)
 - Method library: `../../method_library/` combines the curated `index.json`
@@ -22,9 +22,9 @@ This is the math-modeling-competition adaptation of the local paper factory (CUM
 ## General Rules
 
 - Run each step in a fresh agent context (no continuation across steps).
-- Follow `modeling_guide.md` in the project directory for solver invocation, project layout, math notation, LaTeX section list, figure palette, code reproducibility, and table formatting. If both `modeling_guide.md` and the legacy `analysis_guide.md` are present, **modeling_guide.md wins**.
+- Follow `modeling_guide.md` in the project directory for solver invocation, project layout, math notation, LaTeX section list, figure palette, code reproducibility, and table formatting. The historical analysis guide lives only in the separate `paper_new` workspace.
 - Project layout: `problem/` (题目原文 + 解析产物), `data/{raw,intermediate,final}/`, `models/<id>/` (按候选建模流分子目录), `scripts/`, `figures/`, `tables/`, `results/<subproblem>/`, `logs/`, `paper/` (LaTeX source).
-- Native runner projects derive `checkpoint.md` from committed SQLite state after each transition. Agents must not edit it to advance workflow state or treat it as authoritative; frozen Legacy projects retain their compatibility behavior.
+- Native runner projects derive `checkpoint.md` from committed SQLite state after each transition. Agents must not edit it to advance workflow state or treat it as authoritative; historical projects are not executed by this mainline.
 - `audit_issue_ledger.md` is created at Step 4 and is the cross-step issue tracker. Audit, review, revision, and final-review steps must update statuses in place rather than silently dropping concerns. Issues tagged `PROTECTED` (creative claims worth defending) MUST NOT be deleted or downgraded by later steps.
 - All numerical results in the paper must trace back to a logged solver run in `logs/` or `results/`.
 - Time budget for the entire workflow defaults to 74 hours, but an explicitly supplied official competition deadline is authoritative. SQLite records `contest_started_at`, `contest_deadline_at`, `content_freeze_at` (T−6h), `delivery_freeze_at` (T−2h), and a six-hour delivery reserve. The shared lifecycle deadline caps model, command, audit, recovery, packaging, and publication work; Steps 0–15 cannot complete after content freeze, and Step 16 cannot switch the current release after the final deadline. Retry delays fail closed when they no longer fit.
@@ -294,11 +294,8 @@ with their own Stage/Step identities. It leaves Step13 unsuccessful and the
 workflow paused. Step16 in this route is analysis-only; no release/acceptance
 permission or production-completion event is issued. Normal gates are unchanged.
 
-Formal Phase9-A is a separate, delivery-disabled forensic route using
-`scripts/phase9_authorized_runtime.py` and the authorization sequence in
-`docs/operations/PHASE9_PREP_RUNBOOK.md`. It rebuilds Step13 packets and executes
-all three applicable roles under a distinct runtime grant. It does not change
-this normal math-only precheck or authorize Steps14–16.
+Experimental forensic routes are preserved only in the separate `~/paper_new`
+workspace and are not part of this Native workflow.
 
 Step 13 is the conditional exit subtask of Stage 8 and remains an integer Step
 contract for validation and `step_v2` compatibility. When a machine-owned
@@ -337,7 +334,7 @@ environment definitions, TeX primitives, expl3 constructors/setters, PGF math
 macros, units, counters, and definitions reached through `input`/`include`;
 the classifier may downgrade only when deterministic analysis proves the
 change cannot affect math;
-the old `step_v2` scheduler continues to execute the Step 13 lifecycle directly.
+old `step_v2` projects require explicit Stage activation before execution.
 
 Execution consistency has already been checked by the Step-5/6 `results`
 profile, and paper/result traceability by the Step-10 `paper` profile. The full
@@ -417,11 +414,10 @@ content reruns the owning work and reaches Gate 2 again.
 Step 16 is the workflow compatibility adapter between the independent audit
 subsystem and delivery. It invokes or reuses the audit for the current content
 snapshot, then explicitly enters the acceptance boundary before any delivery
-mutation. The Native adapter selects acceptance mode directly; the Legacy
-adapter invokes the final audit with `--accept-delivery`. Only a non-Phase9
+mutation. The Native adapter selects acceptance mode directly. Only a Native
 `PASS`, or an administrator-issued exact-snapshot `deliver_snapshot`
-authorization that produces `OVERRIDDEN`, may continue. A current Phase9
-acceptance, release, submission, or delivery request is permanently rejected,
+authorization that produces `OVERRIDDEN`, may continue. An experimental workflow
+acceptance, release, submission, or delivery request is rejected,
 including requests with an exact workflow/run-generation coordinate.
 Stage 10 runs cleanup before building the canonical authored
 `factory-final-input-manifest-v4`, which binds the shared artifact-ownership

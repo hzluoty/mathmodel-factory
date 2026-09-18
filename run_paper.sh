@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compatibility launcher. Authoritative orchestration for migrated projects is
-# implemented in factory_core; the frozen shell runner is selected only for
-# projects that have not been explicitly migrated or were explicitly rolled
-# back.
+# Native CLI launcher: FactoryEngine + SQLite + Stage, with no Legacy fallback.
 CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FACTORY="${FACTORY:-$CODE_ROOT}"
 export FACTORY

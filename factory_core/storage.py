@@ -28,6 +28,7 @@ from .stages import (
 )
 from .workflow_events import ENVELOPE_KEY, build_event_payload, canonical_hash
 from .native_write_fence import native_write_error_boundary
+from .state_lease import state_commit_lease
 
 _UNSET = object()
 
@@ -80,22 +81,35 @@ class SQLiteStateStore:
         return self.path.is_file()
 
     def _connect(self) -> sqlite3.Connection:
+        from .native_boundary import require_native_project, require_native_schema
+
+        if self.path.exists() or self.path.is_symlink():
+            require_native_project(self.project_dir)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=10)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA busy_timeout = 10000")
+        try:
+            require_native_schema(connection)
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA busy_timeout = 10000")
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     @contextmanager
     def _session(self):
-        connection = self._connect()
-        try:
-            with native_write_error_boundary(), connection:
-                yield connection
-        finally:
-            connection.close()
+        self.project_dir.mkdir(parents=True, exist_ok=True)
+        # Keep schema inspection and connection close in the same lease: SQLite
+        # may checkpoint/remove WAL on close even for a read session.
+        with state_commit_lease(self.project_dir):
+            connection = self._connect()
+            try:
+                with native_write_error_boundary(), connection:
+                    yield connection
+            finally:
+                connection.close()
 
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:
@@ -1432,13 +1446,16 @@ class SQLiteStateStore:
             row = connection.execute("SELECT * FROM project_state WHERE singleton = 1").fetchone()
             if row is None:
                 raise StateNotInitialized(f"workflow state is not initialized: {self.path}")
-            state = self._state_from_row(row)
-            events = [WorkflowEvent(
-                revision=r["revision"], type=r["type"], created_at=r["created_at"],
-                step=r["step"], attempt=r["attempt"], payload=json.loads(r["payload_json"]),
-            ) for r in connection.execute("SELECT * FROM events ORDER BY revision")]
+            event_rows = connection.execute("SELECT * FROM events ORDER BY revision").fetchall()
             policy = connection.execute("SELECT * FROM contest_policy WHERE singleton = 1").fetchone()
             effects = self._domain_effect_hashes(connection)
+        # Assemble the public view after releasing the DB lease. All raw rows
+        # and hashes above still belong to the same committed read snapshot.
+        state = self._state_from_row(row)
+        events = [WorkflowEvent(
+            revision=r["revision"], type=r["type"], created_at=r["created_at"],
+            step=r["step"], attempt=r["attempt"], payload=json.loads(r["payload_json"]),
+        ) for r in event_rows]
         expected = next((e.payload[ENVELOPE_KEY] for e in reversed(events)
                          if isinstance(e.payload.get(ENVELOPE_KEY), dict)
                          and e.payload[ENVELOPE_KEY].get("aggregate_root_hash_after")), None)
@@ -1481,19 +1498,19 @@ class SQLiteStateStore:
         Older schemas without contest-core tables have no content-freeze
         requirement; incomplete current schemas require explicit repair.
         """
-        from .phase9_authority_lease import (
-            AuthorityStateLeaseError,
-            authority_state_commit_lease,
-            isolated_authority_snapshot_ro,
+        from .state_lease import (
+            StateLeaseError,
+            state_commit_lease,
+            isolated_state_snapshot_ro,
         )
 
         gates = ("content_freeze", "delivery_freeze_override")
         decisions: dict[str, dict[str, Any] | None] = dict.fromkeys(gates)
         try:
-            with authority_state_commit_lease(self.project_dir):
+            with state_commit_lease(self.project_dir):
                 if not self.path.exists():
                     return False, decisions
-                with isolated_authority_snapshot_ro(self.path) as connection:
+                with isolated_state_snapshot_ro(self.path) as connection:
                     version_row = connection.execute(
                         "SELECT schema_version FROM schema_info WHERE singleton=1"
                     ).fetchone()
@@ -1520,7 +1537,7 @@ class SQLiteStateStore:
                             self._latest_decision_row(connection, gate), gate
                         )
                     return required, decisions
-        except (AuthorityStateLeaseError, sqlite3.Error) as exc:
+        except (StateLeaseError, sqlite3.Error) as exc:
             raise ValueError("workflow approvals cannot be read without mutation") from exc
 
     @staticmethod
@@ -3945,13 +3962,10 @@ class SQLiteStateStore:
     def prepare_for_move(self) -> None:
         if not self.path.is_file():
             return
-        connection = self._connect()
-        try:
+        with self._session() as connection:
             connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchall()
             connection.commit()
             connection.execute("PRAGMA journal_mode = DELETE").fetchall()
-        finally:
-            connection.close()
 
     @staticmethod
     def _state_from_row(row: sqlite3.Row) -> WorkflowState:

@@ -74,6 +74,7 @@ web/**/*.tar.gz
 *.backup
 
 # Local scratch / one-off test output
+/build/
 /work/
 /.pytest_cache/
 /fibonacci_results.txt

@@ -257,7 +257,7 @@ def test_phase9_transition_after_manifest_blocks_zip_commit(
 
     monkeypatch.setattr(module, "submission_bundle_manifest", manifest_then_phase9)
 
-    with pytest.raises(ValueError, match="Phase9 submission requires explicit"):
+    with pytest.raises(ValueError, match="NATIVE_WORKFLOW_REQUIRED"):
         module.package_submission(project, "demo", output)
 
     assert switched is True
@@ -337,7 +337,7 @@ def test_standalone_submission_missing_authority_has_zero_side_effects(tmp_path)
     )
 
     assert result.returncode == 1
-    assert "Phase9 submission coordinate does not match" in result.stderr
+    assert "NATIVE_WORKFLOW_REQUIRED" in result.stderr
     assert not output.exists()
     assert not output.parent.exists()
     assert not (

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import importlib
 import os
 import re
 import shlex
@@ -11,10 +10,8 @@ from datetime import datetime
 from dataclasses import asdict
 from pathlib import Path
 
-from .adapters.legacy import LegacyArtifactValidator
 from .domain import FactoryCoreError, MigrationConflict, WorkflowStatus
 from .engine import FactoryEngine
-from .migration import MigrationReport
 from .projections import runtime_payload, write_compatibility_projections
 from .storage import SQLiteStateStore
 from .service import FactoryService, wait_for_worker_ready
@@ -36,7 +33,6 @@ from scripts.solver_job_receipt import (
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
 ROOT = Path(os.environ.get("FACTORY", CODE_ROOT)).resolve()
-LEGACY_RUNNER = CODE_ROOT / "factory_core" / "adapters" / "legacy_runner.sh"
 
 
 def _deadline_epoch(value: str) -> int:
@@ -97,13 +93,12 @@ def solver_evidence_payload(project: Path, job: dict) -> dict:
         }
 
 
-def _legacy_infer(project: Path) -> int:
-    return LegacyArtifactValidator(ROOT, LEGACY_RUNNER).infer_step(project)
-
-
 def _engine_authoritative(project: Path) -> bool:
     store = SQLiteStateStore(project)
-    return store.exists and store.load().control_mode == "engine"
+    if not store.exists:
+        return False
+    state = store.load()
+    return state.control_mode == "engine" and state.runtime_generation == "native_v2"
 
 
 def _checkpoint_step(project: Path) -> int:
@@ -115,11 +110,6 @@ def _checkpoint_step(project: Path) -> int:
         path.read_text(encoding="utf-8", errors="replace"),
     )
     return int(match.group(1)) if match else -1
-
-
-def _exec_legacy(arguments: list[str]) -> None:
-    env = {**os.environ, "FACTORY": str(ROOT)}
-    os.execvpe(str(LEGACY_RUNNER), [str(LEGACY_RUNNER), *arguments], env)
 
 
 def _retired_social_project(project: Path) -> bool:
@@ -148,7 +138,7 @@ def compat(arguments: list[str]) -> int:
                     f"revision={state.revision}"
                 )
             return 0
-        _exec_legacy(arguments)
+        raise FactoryCoreError("NATIVE_WORKFLOW_REQUIRED: no Native workflow state; historical execution is in paper_new")
     project = Path(arguments[0]).resolve()
     if _retired_social_project(project):
         print(
@@ -157,7 +147,7 @@ def compat(arguments: list[str]) -> int:
         )
         return 64
     if not _engine_authoritative(project):
-        _exec_legacy(arguments)
+        raise FactoryCoreError("NATIVE_WORKFLOW_REQUIRED: no Native workflow state; historical execution is in paper_new")
     service = FactoryService(ROOT)
     state = service.inspect(project)
     if state.status is WorkflowStatus.ARCHIVING:
@@ -172,13 +162,6 @@ def _state_json(project: Path) -> str:
     payload = asdict(SQLiteStateStore(project).load())
     payload["status"] = payload["status"].value
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2)
-
-
-def _write_report(path: Path, report: MigrationReport) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(report.to_json() + "\n", encoding="utf-8")
-    temporary.replace(path)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -248,8 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--accept-delivery",
         action="store_true",
         help=(
-            "After analysis, request final acceptance artifacts for a non-Phase9 "
-            "delivery workflow. Phase9 acceptance remains permanently disabled."
+            "After analysis, request final acceptance artifacts for a Native delivery workflow."
         ),
     )
 
@@ -260,6 +242,7 @@ def build_parser() -> argparse.ArgumentParser:
     solver_submit.add_argument("--type", dest="runtime", required=True)
     solver_submit.add_argument("script")
     solver_submit.add_argument("--max-time", type=int, default=1_800)
+    solver_submit.add_argument("--dry-run", action="store_true")
     solver_submit.add_argument("--args", default="")
     solver_submit.add_argument("--input", action="append", default=[])
     solver_submit.add_argument("--output", action="append", default=[])
@@ -282,7 +265,7 @@ def build_parser() -> argparse.ArgumentParser:
     solver_policy.add_argument("--expected-revision", type=int)
 
     action = sub.add_parser("action")
-    action.add_argument("name", choices=["pause", "resume", "kill", "resolve", "deactivate"])
+    action.add_argument("name", choices=["pause", "resume", "kill", "resolve"])
     action.add_argument("project_dir")
     action.add_argument("--expected-revision", type=int)
     action.add_argument("--resolution-json", default="{}")
@@ -290,50 +273,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     migrate = sub.add_parser("migrate")
     migrate_sub = migrate.add_subparsers(dest="migration_command", required=True)
-    inspect = migrate_sub.add_parser("inspect")
-    inspect.add_argument("project_dir")
-    inspect.add_argument("--report", required=True)
-    apply = migrate_sub.add_parser("apply")
-    apply.add_argument("project_dir")
-    apply.add_argument("--report", required=True)
-    apply.add_argument("--digest", required=True)
-    apply.add_argument(
-        "--runtime-generation",
-        default="native_v2",
-        choices=["native_v2", "legacy_adapter"],
-    )
-    apply.add_argument(
-        "--scheduler-generation",
-        default=STAGE_SCHEDULER_GENERATION,
-        choices=[STAGE_SCHEDULER_GENERATION, STEP_SCHEDULER_GENERATION],
-    )
-    rollback = migrate_sub.add_parser("rollback")
-    rollback.add_argument("project_dir")
-    rollback.add_argument("--expected-revision", type=int, required=True)
     scheduler_activate = migrate_sub.add_parser("scheduler-activate")
     scheduler_activate.add_argument("project_dir")
     scheduler_activate.add_argument("--expected-revision", type=int)
-    scheduler_rollback = migrate_sub.add_parser("scheduler-rollback")
-    scheduler_rollback.add_argument("project_dir")
-    scheduler_rollback.add_argument("--expected-revision", type=int)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments and arguments[0] == "phase78":
-        adapter = importlib.import_module("factory_core.phase78_cli")
-        return adapter.main(arguments[1:])
     if arguments and arguments[0] == "compat":
         try:
             return compat(arguments[1:])
-        except FactoryCoreError as exc:
+        except (FactoryCoreError, ValueError, OSError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
-    # Keep the ordinary import-only CLI surface free of production Authority
-    # modules.  The concrete error type is needed only while executing a CLI
-    # command, and phase78/compat retain their established lazy boundaries.
-    from .phase9_delivery_fence import Phase9DeliveryFenceError
+    from .native_boundary import NativeBoundaryError
 
     args = build_parser().parse_args(arguments)
     project_value = getattr(args, "project_dir", None)
@@ -519,8 +473,9 @@ def main(argv: list[str] | None = None) -> int:
                     input_paths=tuple(args.input),
                     output_paths=tuple(args.output),
                     seeds=tuple(args.seed),
+                    dry_run=args.dry_run,
                 )
-                print(job["job_id"])
+                print(json.dumps(job, sort_keys=True) if args.dry_run else job["job_id"])
                 return 0
             if args.solver_command == "status":
                 job = service.solver_status(project, args.job_id)
@@ -570,29 +525,12 @@ def main(argv: list[str] | None = None) -> int:
                     )
             elif args.name == "kill":
                 updated = service.kill(project, expected_revision=revision)
-            elif args.name == "resolve":
+            else:
                 updated = service.resolve(
                     project,
                     json.loads(args.resolution_json),
                     expected_revision=revision,
                 )
-            else:
-                updated = service.rollback_migration(
-                    project, expected_revision=revision
-                )
-            print(json.dumps(runtime_payload(updated), ensure_ascii=False, sort_keys=True))
-            return 0
-        if args.migration_command == "inspect":
-            assert project is not None
-            report = service.inspect_migration(project)
-            _write_report(Path(args.report), report)
-            print(report.to_json())
-            return 2 if report.conflicts else 0
-        if args.migration_command == "rollback":
-            assert project is not None
-            updated = service.rollback_migration(
-                project, expected_revision=args.expected_revision
-            )
             print(json.dumps(runtime_payload(updated), ensure_ascii=False, sort_keys=True))
             return 0
         if args.migration_command == "scheduler-activate":
@@ -602,29 +540,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps(runtime_payload(updated), ensure_ascii=False, sort_keys=True))
             return 0
-        if args.migration_command == "scheduler-rollback":
-            assert project is not None
-            updated = service.rollback_stage_scheduler(
-                project, expected_revision=args.expected_revision
-            )
-            print(json.dumps(runtime_payload(updated), ensure_ascii=False, sort_keys=True))
-            return 0
-        report = MigrationReport.from_json(Path(args.report).read_text(encoding="utf-8"))
-        assert project is not None
-        state = service.apply_migration(
-            project,
-            report,
-            expected_digest=args.digest,
-            runtime_generation=args.runtime_generation,
-            scheduler_generation=args.scheduler_generation,
-        )
-        write_compatibility_projections(project, state)
-        print(_state_json(project))
-        return 0
+        raise FactoryCoreError("unsupported command")
     except (
         FactoryCoreError,
         MigrationConflict,
-        Phase9DeliveryFenceError,
+        NativeBoundaryError,
         json.JSONDecodeError,
         OSError,
     ) as exc:

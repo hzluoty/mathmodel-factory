@@ -324,10 +324,10 @@ def audit_status_fields(project: Path, state: WorkflowState, events) -> dict:
                 fields["score_available"] = True
                 fields["diagnostic_score"] = value.get("overall_score")
             if mode == "final":
-                from .phase9_delivery_fence import legacy_delivery_projection_allowed
+                from .native_boundary import native_delivery_projection_allowed
                 from scripts.submission_fingerprint import final_judge_is_current
                 fields["delivery_allowed"] = (fields["execution_state"] != "interrupted"
-                                               and legacy_delivery_projection_allowed(project)
+                                               and native_delivery_projection_allowed(project)
                                                and final_judge_is_current(project))
     except (OSError, ValueError, TypeError, KeyError) as exc:
         fields.update(evidence_validity="INVALID", evidence_errors=[str(exc)])

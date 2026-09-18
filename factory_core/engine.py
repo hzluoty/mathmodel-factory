@@ -1779,156 +1779,8 @@ class FactoryEngine:
             },
         )
 
-    def deactivate(
-        self,
-        *,
-        expected_revision: int,
-        legacy_inferred_step: int | None = None,
-    ) -> WorkflowState:
-        state = self.store.load()
-        if state.revision != expected_revision:
-            raise RevisionConflict(
-                f"expected revision {expected_revision}, found {state.revision}"
-            )
-        self.assert_semantically_clean_for_rollback(state=state)
-        stage_history = state.scheduler_generation == STAGE_SCHEDULER_GENERATION or any(
-            event.type in {
-                "STAGE_SCHEDULER_ACTIVATED",
-                "STAGE_SCHEDULER_ROLLED_BACK",
-            }
-            for event in self.store.events()
-        )
-        if stage_history:
-            raise InvalidTransition(
-                "Stage-scheduled projects may only roll back to step_v2; "
-                "full Legacy deactivation is prohibited"
-            )
-        if legacy_inferred_step is None:
-            raise InvalidTransition(
-                "full Legacy deactivation requires a verified Legacy cursor"
-            )
-        if legacy_inferred_step != state.last_completed_step:
-            raise InvalidTransition(
-                "Legacy inference does not match the authoritative SQLite cursor: "
-                f"legacy={legacy_inferred_step}, sqlite={state.last_completed_step}"
-            )
-        return self._transition(
-            expected_revision=expected_revision,
-            event_type="ENGINE_DEACTIVATED",
-            changes={
-                "control_mode": "legacy",
-                "runtime_generation": "legacy_adapter",
-                "scheduler_generation": STEP_SCHEDULER_GENERATION,
-                "stage_catalog_version": None,
-                "active_stage": None,
-                "active_subtask": None,
-                "source_step_id": state.active_step,
-            },
-        )
-
-    def assert_semantically_clean_for_rollback(
-        self,
-        *,
-        state: WorkflowState | None = None,
-    ) -> None:
-        """Fail closed before changing a Stage project's control authority."""
-
-        current = state or self.store.load()
-        if current.status in {
-            WorkflowStatus.RUNNING,
-            WorkflowStatus.RETRYING,
-            WorkflowStatus.ARCHIVING,
-        } or (
-            current.runner_pid is not None
-            and self._pid_is_live(current.runner_pid)
-        ):
-            raise InvalidTransition("cannot change scheduler authority while a runner is active")
-        if current.pending_action is not None or current.status in {
-            WorkflowStatus.AWAITING_SELECTION,
-            WorkflowStatus.AWAITING_CONSULTATION,
-        }:
-            raise InvalidTransition(
-                "cannot change scheduler authority while a human decision is pending"
-            )
-        open_requests = [
-            request
-            for request in self.store.decision_requests()
-            if request.get("status") == "open"
-        ]
-        if open_requests:
-            raise InvalidTransition(
-                "cannot change scheduler authority with unfinished decision requests"
-            )
-        if current.attempt > 0:
-            raise InvalidTransition(
-                "cannot change scheduler authority after a workflow execution attempt started"
-            )
-        dirty = self.store.dirty_flags()
-        if dirty:
-            raise InvalidTransition(
-                "cannot change scheduler authority while semantic dirty flags are unresolved"
-            )
-        baseline = self.store.stage_cursor_input()
-        if baseline is not None:
-            current_manifest = capture_artifact_manifest(self.project_dir)
-            baseline_manifest = dict(baseline.get("manifest") or {})
-            if manifest_fingerprint(current_manifest) != str(
-                baseline.get("input_fingerprint") or ""
-            ):
-                changes = classify_manifest_changes(
-                    baseline_manifest, current_manifest
-                )
-                artifacts = sorted(
-                    {change.cause_artifact for change in changes}
-                )
-                raise InvalidTransition(
-                    "cannot change scheduler authority because the Stage input "
-                    "manifest drifted from its baseline"
-                    + (f": {', '.join(artifacts[:5])}" if artifacts else "")
-                )
-        if self.store.projection_failures(pending_only=True):
-            raise InvalidTransition(
-                "cannot change scheduler authority with unresolved projection failures"
-            )
-        final_snapshot = (
-            self.project_dir / ".factory" / "finalization" / "input_manifest.json"
-        )
-        finalization_pending = (
-            current.active_stage == 10
-            or current.source_step_id == 16
-            or current.last_completed_step >= 15
-        )
-        if (
-            final_snapshot.is_file()
-            and finalization_pending
-            and current.status is not WorkflowStatus.COMPLETED
-        ):
-            raise InvalidTransition(
-                "cannot change scheduler authority while a Finalization snapshot is pending"
-            )
-        from .selection_projection import (
-            step3_projection_required,
-            verify_step3_projections,
-        )
-
-        if (
-            bool(self.store.decision_history("step3"))
-            and step3_projection_required(self.project_dir)
-        ):
-            projection = verify_step3_projections(self.project_dir)
-            if not projection.valid:
-                raise InvalidTransition(
-                    "cannot change scheduler authority with unresolved Step 3 "
-                    "projection drift: " + "; ".join(projection.errors)
-                )
-        from .consultation_projection import verify_consultation_projections
-
-        consultation = verify_consultation_projections(self.project_dir)
-        if not consultation.valid:
-            raise InvalidTransition(
-                "cannot change scheduler authority with unresolved consultation "
-                "projection drift: " + "; ".join(consultation.errors)
-            )
+    def deactivate(self, *, expected_revision: int, legacy_inferred_step: int | None = None) -> WorkflowState:
+        raise InvalidTransition("Legacy workflow deactivation is retired; use paper_new for historical recovery")
 
     def archive_completed(self, factory_root: str | Path) -> WorkflowState:
         root = Path(factory_root).resolve()
@@ -1938,7 +1790,7 @@ class FactoryEngine:
         if state.status is WorkflowStatus.COMPLETED and self.project_dir.parent.name == "complete":
             return state
 
-        from .phase9_delivery_fence import delivery_side_effect_commit_lease
+        from .native_boundary import delivery_side_effect_commit_lease
 
         with delivery_side_effect_commit_lease(
             self.project_dir,
@@ -2000,7 +1852,7 @@ class FactoryEngine:
         stage_mode: bool,
         runner_lease: str | None = None,
     ) -> WorkflowState:
-        from .phase9_delivery_fence import delivery_side_effect_commit_lease
+        from .native_boundary import delivery_side_effect_commit_lease
 
         with delivery_side_effect_commit_lease(
             self.project_dir,

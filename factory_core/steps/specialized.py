@@ -36,7 +36,7 @@ from ..governance.overrides import (
     OverrideProvider,
     default_override_provider,
 )
-from ..phase9_delivery_fence import Phase9DeliveryFenceError
+from ..native_boundary import NativeBoundaryError
 from ..delivery.release import ReleasePublisher
 from ..contest import ContestDeadlineExceeded
 from ..deadline import ensure_deadline
@@ -1436,7 +1436,7 @@ class DeliveryStep:
         project = context.project_dir
         base = project.name
         try:
-            from ..phase9_delivery_fence import (
+            from ..native_boundary import (
                 delivery_side_effect_commit_lease,
                 require_delivery_side_effect_authority,
             )
@@ -1465,7 +1465,7 @@ class DeliveryStep:
                         accepted=(0, 1),
                     )
                 final_input = build_final_input_manifest(project)
-        except Phase9DeliveryFenceError as exc:
+        except NativeBoundaryError as exc:
             return ExecutionResult.failed(
                 "PERMANENT_PHASE9_DELIVERY_DISABLED",
                 returncode=2,
@@ -1503,7 +1503,7 @@ class DeliveryStep:
             audit_service = self.audit_service
         try:
             outcome = audit_service.run(context, analysis_only=False)
-        except Phase9DeliveryFenceError as exc:
+        except NativeBoundaryError as exc:
             return self._with_workflow_events(
                 ExecutionResult.failed(
                     "PERMANENT_PHASE9_DELIVERY_DISABLED",
@@ -1590,7 +1590,7 @@ class DeliveryStep:
             return self._snapshot_changed_result(
                 final_input.fingerprint, exc, workflow_events
             )
-        except Phase9DeliveryFenceError as exc:
+        except NativeBoundaryError as exc:
             return self._with_workflow_events(
                 ExecutionResult.failed(
                     "PERMANENT_PHASE9_DELIVERY_DISABLED",

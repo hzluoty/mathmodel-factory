@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 
-COMMON_PREAMBLE = """Before doing any substantive work, read the project style guide in the current project directory: prefer `modeling_guide.md` (math-modeling mode) if present, otherwise read `analysis_guide.md` (legacy social-science mode). It is the canonical guide for local job execution, figure style, project file layout, code conventions, error recovery, and table formatting.
+COMMON_PREAMBLE = """Before doing any substantive work, read the project style guide in the current project directory: read `modeling_guide.md`. It is the canonical guide for local job execution, figure style, project file layout, code conventions, error recovery, and table formatting.
 
 If `human_review.md` exists, read it before substantive work. Consultation sections are rebuildable projections: the verified SQLite-backed answers embedded directly in this prompt are authoritative. Older downstream artifacts may remain after a rewind; do not treat them as authoritative unless deliberately regenerated.
 
