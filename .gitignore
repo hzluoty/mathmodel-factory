@@ -77,6 +77,7 @@ web/**/*.tar.gz
 /build/
 /work/
 /.pytest_cache/
+/_winverify/
 /fibonacci_results.txt
 
 # Editor and OS files
