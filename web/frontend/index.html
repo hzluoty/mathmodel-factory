@@ -352,6 +352,30 @@
       }
     }
   </style>
+  <script>
+    /* 最坏情况的自救：浏览器仍持有旧 index.html，而它引用的入口 chunk 已被新
+       部署替换 → 入口 404、整页空白（此时没有任何业务 JS 能运行）。
+       入口脚本报错时做一次受保护的整页刷新；同一个入口 URL 只重试一次，避免
+       真实网络故障时变成无限刷新循环。
+       必须放在 <head>：构建产物会把入口 <script type="module"> 注入到 head 末尾，
+       这个监听器要先于它注册才能捕获加载失败。 */
+    (function () {
+      var RECOVERED_KEY = 'pf:entry-recovery-src';
+      window.addEventListener('error', function (event) {
+        var target = event.target;
+        if (!target || target.tagName !== 'SCRIPT') return;
+        var src = target.getAttribute('src') || '';
+        if (src.indexOf('/assets/') === -1) return;
+        try {
+          if (sessionStorage.getItem(RECOVERED_KEY) === src) return;
+          sessionStorage.setItem(RECOVERED_KEY, src);
+        } catch (error) {
+          return; /* storage 不可用时不要冒险触发刷新循环 */
+        }
+        window.location.reload();
+      }, true);
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>

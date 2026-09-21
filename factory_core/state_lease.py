@@ -27,6 +27,23 @@ class StateLeaseError(RuntimeError):
 
 _THREAD_LEASES = threading.local()
 
+# Environment contract for handing a held lease to a process we spawn.
+#
+# A lease is an ``flock`` on an open file description.  A child cannot inherit it
+# implicitly -- ``_leases_for_current_process`` deliberately resets on pid change
+# so that a forked child never treats a parent's lease as a same-thread nested
+# acquisition.  When the holder itself spawns a child inside its critical
+# section, though, that child is *inside* the section by construction, so the
+# holder may explicitly pass the very descriptors that carry the lock.  The
+# child re-validates identity and re-tests the lock before trusting them, so the
+# handoff cannot grant authority the parent does not hold.
+INHERITED_LEASE_FDS_ENV = "FACTORY_INHERITED_STATE_LEASE_FDS"
+
+# Outermost descriptor per held lease, keyed by ``(st_dev, st_ino)``.  Unlike
+# ``_THREAD_LEASES`` this is process-wide, because the point is to hand it to a
+# child process.
+_ACTIVE_LEASE_DESCRIPTORS: dict[tuple[int, int], int] = {}
+
 
 def _leases_for_current_process() -> dict[tuple[int, int], tuple[int, int]]:
     """Return only leases acquired by this thread in this process.
@@ -80,6 +97,76 @@ def _validate_metadata(
         )
 
 
+def _lease_key(path: Path) -> tuple[int, int] | None:
+    try:
+        metadata = path.lstat()
+    except OSError:
+        return None
+    return (metadata.st_dev, metadata.st_ino)
+
+
+def _inherited_lease_descriptor(
+    path: Path, path_metadata: os.stat_result, *, kind: str, single_link: bool
+) -> int | None:
+    """A descriptor from our spawning process that already holds ``path``'s lock."""
+
+    raw = os.environ.get(INHERITED_LEASE_FDS_ENV, "")
+    if not raw:
+        return None
+    expected = stat.S_ISDIR if kind == "project directory" else stat.S_ISREG
+    for candidate in raw.split(","):
+        candidate = candidate.strip()
+        if not candidate:
+            continue
+        try:
+            descriptor = int(candidate)
+        except ValueError:
+            continue
+        try:
+            inherited = os.fstat(descriptor)
+        except OSError:
+            continue
+        if stat.S_ISLNK(inherited.st_mode) or not expected(inherited.st_mode):
+            continue
+        if single_link and inherited.st_nlink != 1:
+            continue
+        if _identity(inherited) != _identity(path_metadata):
+            continue
+        try:
+            # Non-blocking: succeeds immediately when this open file description
+            # already holds the lock, and fails rather than blocking when it does
+            # not, so a stale handoff degrades to ordinary acquisition.
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            continue
+        return descriptor
+    return None
+
+
+def child_lease_handoff(project: str | Path) -> tuple[dict[str, str], tuple[int, ...]]:
+    """Environment and descriptors that let a spawned child reuse our lease.
+
+    Only a process that currently holds the project lease returns anything; the
+    child still re-validates identity and the lock itself.
+    """
+
+    root = Path(project).resolve()
+    descriptors: list[int] = []
+    for candidate in (root, root / ".factory" / "state.db"):
+        key = _lease_key(candidate)
+        if key is None:
+            continue
+        descriptor = _ACTIVE_LEASE_DESCRIPTORS.get(key)
+        if descriptor is not None and descriptor not in descriptors:
+            descriptors.append(descriptor)
+    if not descriptors:
+        return {}, ()
+    return (
+        {INHERITED_LEASE_FDS_ENV: ",".join(str(fd) for fd in descriptors)},
+        tuple(descriptors),
+    )
+
+
 @contextmanager
 def _exclusive_inode_lease(
     path: Path, *, kind: str, single_link: bool
@@ -89,6 +176,16 @@ def _exclusive_inode_lease(
     except FileNotFoundError as exc:
         raise StateLeaseError(f"workflow state {kind} lease target is missing") from exc
     _validate_metadata(path_metadata, kind=kind, single_link=single_link)
+
+    inherited = _inherited_lease_descriptor(
+        path, path_metadata, kind=kind, single_link=single_link
+    )
+    if inherited is not None:
+        # We already hold this lock through a descriptor our spawner passed to
+        # us.  Never unlock it: LOCK_UN on a shared open file description would
+        # release the spawning process's lease as well.
+        yield
+        return
 
     leases = _leases_for_current_process()
     key = (path_metadata.st_dev, path_metadata.st_ino)
@@ -144,10 +241,12 @@ def _exclusive_inode_lease(
                 f"workflow state {kind} changed while acquiring its commit lease"
             )
         leases[key] = (descriptor, 1)
+        _ACTIVE_LEASE_DESCRIPTORS[key] = descriptor
         try:
             yield
         finally:
             del leases[key]
+            _ACTIVE_LEASE_DESCRIPTORS.pop(key, None)
     finally:
         if locked:
             fcntl.flock(descriptor, fcntl.LOCK_UN)

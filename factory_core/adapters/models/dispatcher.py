@@ -40,6 +40,15 @@ class ModelDispatcher:
         self._quarantined_models: dict[str, dict[str, str]] = {}
 
     def policy_for(self, project_id: str, step_key: str | int, defaults: tuple[str, ...]) -> ModelPolicy:
+        """Resolve the primary/fallback pair for one step.
+
+        An operator assignment in ``web/model_config.json`` wins.  When there is
+        none, the caller-provided catalog defaults become the policy.  Note that
+        ``execute`` still appends ``defaults`` to the candidate chain even when an
+        assignment exists; that escalation is a pinned product contract (see
+        ``tests/test_native_orchestration.py::test_configured_models_fall_back_to_catalog_defaults``)
+        and must not be tightened without an explicit decision.
+        """
         assigned = get_step_model_ids(self.root / "web" / "model_config.json", project_id, step_key)
         if assigned:
             return ModelPolicy(*assigned)
@@ -63,6 +72,9 @@ class ModelDispatcher:
                 return JointClaudeBackend(self.root).execute(request)
         policy = self.policy_for(request.project_dir.name, step_key, defaults)
         candidates: list[str] = []
+        # Deliberate escalation: an explicit assignment does NOT stop the chain,
+        # catalog defaults remain candidates after primary and fallback.  This is
+        # the pinned contract described on ``policy_for``.
         for model_id in (policy.primary, policy.fallback, *defaults):
             if model_id and model_id not in candidates:
                 candidates.append(model_id)
@@ -134,8 +146,13 @@ class ModelDispatcher:
                 "PERMANENT_BACKEND_UNAVAILABLE",
                 "PERMANENT_MODEL_CONFIG",
                 "PERMANENT_MODEL_UNSUPPORTED",
-                "PERMANENT_OUTPUT_CONTRACT",
             }:
+                # ``PERMANENT_OUTPUT_CONTRACT`` is deliberately absent: every
+                # producer of it (adapters/models/backends.py) reports a property
+                # of the *current request* -- a missing output_file, or output
+                # paths outside the project -- not an unusable model.  Quarantining
+                # on it let one malformed request skip the model for every later
+                # request sharing this dispatcher instance.
                 self._quarantined_models[model_id] = {
                     "error_class": last.error_class,
                     "reason": str(last.metadata.get("reason") or "candidate failed native preflight"),

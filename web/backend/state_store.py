@@ -131,12 +131,22 @@ def _snapshot_timestamp(project_path: Path, snapshot: dict) -> int:
     return int(project_path.stat().st_mtime)
 
 
-def _from_snapshot(project_path: Path, base_name: str, snapshot: dict) -> dict:
+def _from_snapshot(project_path: Path, base_name: str, snapshot: dict, *,
+                   legacy_selection: bool = True) -> dict:
     current_step = max(0, int(snapshot.get("current_step", 0)))
     pid = _validate_pid(snapshot.get("pid"))
     consultation_gate = snapshot.get("consultation_gate")
-    selection_from_files, selection_gate, selection_deadline = _read_selection(project_path)
-    selection_pending = snapshot.get("state") == "awaiting_selection" or selection_from_files
+    if legacy_selection:
+        selection_from_files, selection_gate, selection_deadline = _read_selection(project_path)
+        selection_pending = snapshot.get("state") == "awaiting_selection" or selection_from_files
+    else:
+        # Native engine projects derive selection state from the authoritative
+        # SQLite ``pending_action`` and overwrite these fields at the call site.
+        # Reading the legacy selection files here would compute a value that is
+        # discarded on the next statement.
+        selection_pending = snapshot.get("state") == "awaiting_selection"
+        selection_gate = None
+        selection_deadline = None
     display_status = snapshot.get("display_status") or snapshot.get("state", "unknown")
     return {
         **{key: snapshot[key] for key in AUDIT_FIELDS if key in snapshot},
@@ -258,7 +268,7 @@ def read_runtime_status(project_path: str | Path, base_name: str, *,
         state = read["state"]
         snapshot = authoritative_status(
             project, read, include_fingerprint=include_fingerprint)
-        payload = _from_snapshot(project, base_name, snapshot)
+        payload = _from_snapshot(project, base_name, snapshot, legacy_selection=False)
         action = state.pending_action or {}
         payload["status"] = snapshot["state"]
         payload["consultation_pending"] = state.status.value == "awaiting_consultation"

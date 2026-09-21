@@ -176,6 +176,23 @@ class WorkerLauncher:
         return WorkerHandle(process.pid, log_path, store.load())
 
 
+# Project template resources.  A missing required resource means the deployment
+# is incomplete, so project creation reports the exact paths instead of
+# producing a project that silently lacks its style or guidance files.
+REQUIRED_PROJECT_RESOURCES = (
+    ("resources/style/paper.sty", "style/paper.sty"),
+    ("resources/bib/bibliography.bst", "bib/bibliography.bst"),
+    ("resources/style/model_papers_style.json", "style/model_papers_style.json"),
+    ("modeling_guide.md", "modeling_guide.md"),
+)
+# Legacy context, copied only when present.  README.md marks this file as
+# historical reference that is not part of the executable workflow, so its
+# absence is not a deployment error -- but it is no longer silently ambiguous.
+OPTIONAL_PROJECT_RESOURCES = (
+    ("analysis_guide.md", "analysis_guide.md"),
+)
+
+
 class FactoryService:
     def __init__(
         self,
@@ -237,6 +254,18 @@ class FactoryService:
         project = ongoing / base_name
         if project.exists() or (complete / base_name).exists():
             raise FileExistsError(f"project already exists: {base_name}")
+        # Check the template up front, before any directory or database is
+        # created, so an incomplete deployment fails with the offending paths
+        # rather than leaving a half-provisioned project behind.
+        missing = [
+            str(self.code_root / source)
+            for source, _target in REQUIRED_PROJECT_RESOURCES
+            if not (self.code_root / source).is_file()
+        ]
+        if missing:
+            raise FileNotFoundError(
+                "project template resources are missing: " + ", ".join(missing)
+            )
         started_at = int(time.time())
         contest_policy = (
             ContestPolicy.default(started_at=started_at)
@@ -253,16 +282,12 @@ class FactoryService:
         )
         for relative in directories:
             (project / relative).mkdir(parents=True, exist_ok=True)
-        copies = (
-            (self.code_root / "resources/style/paper.sty", project / "style/paper.sty"),
-            (self.code_root / "resources/bib/bibliography.bst", project / "bib/bibliography.bst"),
-            (self.code_root / "resources/style/model_papers_style.json", project / "style/model_papers_style.json"),
-            (self.code_root / "analysis_guide.md", project / "analysis_guide.md"),
-            (self.code_root / "modeling_guide.md", project / "modeling_guide.md"),
-        )
-        for source, target in copies:
+        for source_rel, target_rel in REQUIRED_PROJECT_RESOURCES:
+            shutil.copy2(self.code_root / source_rel, project / target_rel)
+        for source_rel, target_rel in OPTIONAL_PROJECT_RESOURCES:
+            source = self.code_root / source_rel
             if source.is_file():
-                shutil.copy2(source, target)
+                shutil.copy2(source, project / target_rel)
         (project / "references.bib").touch()
         checkpoint = (
             "# Paper Skill Checkpoint\n\n"

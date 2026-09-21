@@ -4,11 +4,14 @@ The v1 module is a persisted compatibility trust root: do not edit its bytes
 or indices when registering newly supported native artifacts. Current input
 manifests explicitly carry this module's new schema, not the frozen identity.
 """
+from fnmatch import fnmatchcase
+from functools import lru_cache
 from pathlib import Path
 from .artifact_ownership import (
     ARTIFACT_OWNERSHIP_REGISTRY as FROZEN_REGISTRY,
     ArtifactOwnership,
     artifact_pattern_matches,
+    artifact_pattern_variants,
     normalize_artifact_path,
 )
 
@@ -27,9 +30,36 @@ ADDITIONAL_OWNERSHIP = (
 ARTIFACT_OWNERSHIP_REGISTRY = FROZEN_REGISTRY + ADDITIONAL_OWNERSHIP
 
 
+# Frozen order is part of the contract: additional native rules win over the
+# frozen table, exactly as before.
+_OWNERSHIP_ORDER = ADDITIONAL_OWNERSHIP + FROZEN_REGISTRY
+
+
+@lru_cache(maxsize=None)
+def _pattern_variants(pattern):
+    """Memoize the frozen globstar variant expansion (pure function of pattern)."""
+
+    return artifact_pattern_variants(pattern)
+
+
+@lru_cache(maxsize=65536)
 def artifact_ownership(path):
-    return next((rule for rule in ADDITIONAL_OWNERSHIP + FROZEN_REGISTRY
-                 if artifact_pattern_matches(rule.pattern, path)), None)
+    """Return the owning rule for one artifact path.
+
+    Same semantics as the frozen matcher (case-insensitive, normalized globstar
+    matching in registry order), but the path is normalized once per lookup and
+    the per-pattern variant lists are precomputed. The previous formulation
+    re-normalized the path and rebuilt the variants for every one of the ~88
+    rules on every call, which dominated project scans (hundreds of thousands of
+    matches per request) on large projects.
+    """
+
+    normalized = normalize_artifact_path(path).lower()
+    for rule in _OWNERSHIP_ORDER:
+        if any(fnmatchcase(normalized, candidate)
+               for candidate in _pattern_variants(rule.pattern)):
+            return rule
+    return None
 
 
 def artifact_owner_stage(path, *, default=None):

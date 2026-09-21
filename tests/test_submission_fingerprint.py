@@ -279,7 +279,29 @@ def test_final_fingerprint_changes_when_evaluator_contract_changes(
     before = submission_fingerprint(project, "demo")
 
     path = factory / relative
-    path.write_bytes(path.read_bytes() + b"changed\n")
+    if path.name == "model_config.json":
+        # A corrupt config is now an explicit error, so model a *valid* change to
+        # the evaluator contract instead of appending bytes to the JSON.
+        path.write_text(
+            json.dumps(
+                {"_default": {"step_16": {"primary": "judge-a", "fallback": "judge-changed"}}}
+            ),
+            encoding="utf-8",
+        )
+    elif path.name == "model_registry.json":
+        path.write_text(
+            json.dumps(
+                {
+                    "models": [
+                        {"id": "judge-a", "backend": "openai", "model": "model-a-changed"},
+                        {"id": "judge-b", "backend": "gemini", "model": "model-b"},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+    else:
+        path.write_bytes(path.read_bytes() + b"changed\n")
 
     assert submission_fingerprint(project, "demo") != before
 

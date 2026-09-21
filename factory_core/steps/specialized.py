@@ -31,6 +31,7 @@ from ..current_dirty import (
     manifest_fingerprint,
     semantic_flags,
 )
+from ..cleanup_policy import policy_fingerprint
 from ..governance.overrides import (
     CONTINUE_AFTER_GATE2,
     OverrideProvider,
@@ -1455,11 +1456,16 @@ class DeliveryStep:
             with delivery_side_effect_commit_lease(project, operation="delivery"):
                 cleanup = self.factory_root / "scripts/cleanup_project_artifacts.py"
                 if cleanup.is_file():
+                    # Report-only by design: the cleanup policy is fail-closed,
+                    # but nothing in the delivery path may delete artifacts that
+                    # the final input manifest is about to attest to.  The report
+                    # (with its policy fingerprint) lands in .factory/ and the
+                    # fingerprint is recorded in FINAL_SNAPSHOT_CREATED below.
                     self.runner.python(
                         self.factory_root,
                         project,
                         "scripts/cleanup_project_artifacts.py",
-                        [project],
+                        ["--dry-run", project],
                         label="delivery_cleanup",
                         timeout_seconds=300,
                         accepted=(0, 1),
@@ -1480,6 +1486,7 @@ class DeliveryStep:
                 "schema_version": "factory-final-snapshot-event-v1",
                 "input_fingerprint": final_input.fingerprint,
                 "manifest": str(final_input.manifest_path.relative_to(project)),
+                "cleanup_policy_sha256": policy_fingerprint(),
                 "source_step": 16,
                 },
             }

@@ -9,6 +9,9 @@ WEB_ROOT="/var/www/tfisher.de"
 SERVICE_USER="${SERVICE_USER:-tfisher}"
 MODE="${1:-full}"
 SERVICE_NAME="${SERVICE_NAME:-paper-factory-api.service}"
+# 带 hash 的旧构建资源保留天数。部署不再清空 $WEB_ROOT：还在运行旧 index.html
+# 的浏览器需要继续取到旧的 chunk，否则会 404 并卡在加载兜底层。
+STALE_ASSET_DAYS="${STALE_ASSET_DAYS:-14}"
 
 # shellcheck source=backend_service_health.sh
 source "$SCRIPT_DIR/backend_service_health.sh"
@@ -131,8 +134,13 @@ deploy_frontend() {
     fi
 
     echo -e "${GREEN}► 步骤 2/4: 部署前端到 $WEB_ROOT${NC}"
-    rm -rf "$WEB_ROOT"/*
-    cp -r "$PROJECT_ROOT/web/frontend/dist"/* "$WEB_ROOT/"
+    # 覆盖式同步，不做 rm -rf：仍在运行旧 index.html 的浏览器必须还能取到
+    # 旧 hash chunk，否则动态 import 会 404 并把控制台卡在加载兜底层。
+    mkdir -p "$WEB_ROOT"
+    cp -r "$PROJECT_ROOT/web/frontend/dist"/. "$WEB_ROOT/"
+    # 只回收超过保留期的历史构建资源。
+    find "$WEB_ROOT" -type f -mtime +"$STALE_ASSET_DAYS" -delete
+    find "$WEB_ROOT" -mindepth 1 -type d -empty -delete
     chown -R www-data:www-data "$WEB_ROOT"
     chmod -R 755 "$WEB_ROOT"
 
@@ -193,6 +201,18 @@ test_deployment() {
             echo -e "${GREEN}✓ 前端部署指纹一致${NC}"
         else
             echo -e "${RED}✗ 前端 dist 与生产 index.html 指纹不一致${NC}"
+            failed=1
+        fi
+
+        # index.html 引用带 hash 的资源：它一旦被浏览器启发式缓存，用户会长期
+        # 运行旧构建并请求已经不存在的 chunk。这里把“首页必须回源校验”变成
+        # 部署验收的一部分，避免该故障静默复发。
+        local homepage_headers
+        homepage_headers="$(curl -sI https://tfisher.de/ | tr -d '\r' | tr 'A-Z' 'a-z')"
+        if grep -Eq '^cache-control:.*(no-cache|no-store|must-revalidate)' <<<"$homepage_headers"; then
+            echo -e "${GREEN}✓ 首页禁止启发式缓存${NC}"
+        else
+            echo -e "${RED}✗ 首页缺少 Cache-Control: no-cache（见 web/docs/deployment/DEPLOYMENT.md）${NC}"
             failed=1
         fi
     fi

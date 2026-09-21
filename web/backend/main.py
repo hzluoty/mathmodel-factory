@@ -45,7 +45,7 @@ from .schemas import (
 )
 from .showcase_api import create_showcase_router
 from .showcase import list_completed_showcase_papers
-from .ws import ConnectionManager, create_monitor_task, create_ws_router
+from .ws import ConnectionManager, create_ws_router
 
 
 settings = load_settings()
@@ -56,20 +56,15 @@ auth_store.bootstrap_admin(settings.admin_password)
 auth_store.bootstrap_guest_showcase(settings.showcase_projects)
 ticket_store = WsTicketStore(ttl_seconds=60)
 manager = ConnectionManager()
-monitor_projects_task = create_monitor_task(settings, manager)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    monitor_task = asyncio.create_task(monitor_projects_task())
-    try:
-        yield
-    finally:
-        monitor_task.cancel()
-        try:
-            await monitor_task
-        except asyncio.CancelledError:
-            pass
+    # Realtime updates are driven by each connection reading the manager's
+    # shared, TTL-cached project snapshot.  There is deliberately no separate
+    # global monitor task: it would run a second full project scan that scales
+    # with neither the client count nor the request load.
+    yield
 
 
 app = FastAPI(title="Paper Factory Dashboard", version="2.0.0", lifespan=lifespan)

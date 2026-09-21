@@ -107,11 +107,17 @@ export const AdminShowcase = {
 }
 
 // ---- projects ----
+// These endpoints recompute audit verification (judge-packet and decision-receipt
+// hashing, workflow replay) and legitimately exceed the interactive ceiling on
+// large projects. They stay bounded, so they get their own budget instead of a
+// spurious "请求超时" toast that hides the real progress.
+const AUDIT_TIMEOUT_MS = 60000
+
 export const Projects = {
   list: () => api.get('/api/projects').then((r) => (Array.isArray(r.data) ? r.data.map(normalizeProjectStatus) : [])),
-  status: (b) => api.get(`/api/projects/${b}/status`).then((r) => normalizeProjectStatus(r.data)),
-  diagnostics: (b) => api.get(`/api/projects/${b}/diagnostics`).then((r) => r.data),
-  contestDashboard: (b) => api.get(`/api/projects/${b}/contest-dashboard`).then((r) => normalizeContestDashboard(r.data)),
+  status: (b) => api.get(`/api/projects/${b}/status`, { timeout: AUDIT_TIMEOUT_MS }).then((r) => normalizeProjectStatus(r.data)),
+  diagnostics: (b) => api.get(`/api/projects/${b}/diagnostics`, { timeout: AUDIT_TIMEOUT_MS }).then((r) => r.data),
+  contestDashboard: (b) => api.get(`/api/projects/${b}/contest-dashboard`, { timeout: AUDIT_TIMEOUT_MS }).then((r) => normalizeContestDashboard(r.data)),
   checkpoint: (b) => api.get(`/api/projects/${b}/checkpoint`).then((r) => r.data),
   logs: (b, lines = 250, signal) => api.get(`/api/projects/${b}/logs`, { params: { lines }, signal }).then((r) => r.data),
   steps: (b, signal) => api.get(`/api/projects/${b}/steps`, { signal }).then((r) => normalizeStepsPayload(r.data)),

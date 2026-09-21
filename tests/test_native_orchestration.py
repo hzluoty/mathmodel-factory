@@ -352,6 +352,64 @@ def test_dispatcher_quarantines_permanently_unsupported_model(monkeypatch, tmp_p
     assert len(fallback.requests) == 2
 
 
+def test_dispatcher_does_not_quarantine_on_request_level_output_contract(
+    monkeypatch, tmp_path
+):
+    """A per-request output-contract failure is not a property of the model.
+
+    ``ApiAgentBackend`` returns ``PERMANENT_OUTPUT_CONTRACT`` when the request's
+    own output path is missing or outside the project.  That says nothing about
+    whether the model is usable, so it must not enter the model quarantine set.
+    """
+
+    contract = RecordingBackend(
+        [
+            ExecutionResult.failed("PERMANENT_OUTPUT_CONTRACT", returncode=2),
+            ExecutionResult.failed("PERMANENT_OUTPUT_CONTRACT", returncode=2),
+        ]
+    )
+    fallback = RecordingBackend(
+        [
+            ExecutionResult.succeeded(model="fallback-one"),
+            ExecutionResult.succeeded(model="fallback-two"),
+        ]
+    )
+    backends = ModelBackendRegistry()
+    backends.register("configured", contract)
+    backends.register("codex", fallback)
+    monkeypatch.setattr(
+        "factory_core.adapters.models.dispatcher.get_step_model_ids",
+        lambda *_args: ("contract-model", "codex"),
+    )
+    monkeypatch.setattr(
+        "factory_core.adapters.models.dispatcher.get_model_entry",
+        lambda _path, model_id: {
+            "backend": "configured",
+            "model": model_id,
+            "effort": "",
+            "base_url": "",
+            "key_env": "",
+        },
+    )
+    dispatcher = ModelDispatcher(tmp_path, backends)
+    request = ModelRequest(
+        project_dir=tmp_path,
+        step_id=13,
+        attempt=1,
+        prompt="judge",
+        timeout_seconds=10,
+        hang_timeout_seconds=5,
+    )
+
+    dispatcher.execute(request, step_key=13, defaults=("codex",))
+    dispatcher.execute(request, step_key=13, defaults=("codex",))
+
+    assert len(contract.requests) == 2, (
+        "a request-level output-contract failure must not quarantine the model"
+    )
+    assert dispatcher._quarantined_models == {}
+
+
 def test_api_backend_passes_project_relative_output_paths(tmp_path):
     class RecordingSupervisor:
         request = None

@@ -37,6 +37,7 @@ class CommandRunner:
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
         log_path: Path | None = None,
+        pass_fds: Iterable[int] = (),
     ) -> CommandResult:
         timeout_seconds = cap_timeout(timeout_seconds)
         # Packaging occurs after Final Audit. Its operational receipt must not
@@ -60,6 +61,7 @@ class CommandRunner:
                 timeout_seconds=timeout_seconds,
                 stdout_path=target,
                 env={**os.environ, **(env or {})},
+                pass_fds=tuple(pass_fds),
             )
         )
         return CommandResult(

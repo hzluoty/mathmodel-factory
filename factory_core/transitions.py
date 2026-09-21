@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from pathlib import Path
 from typing import Any, Callable
 
 from .domain import WorkflowState
 from .storage import SQLiteStateStore
+
+logger = logging.getLogger(__name__)
 
 
 class TransitionCoordinator:
@@ -69,8 +72,19 @@ class TransitionCoordinator:
                         projector_name=str(projector_name),
                         error_type=type(exc).__name__,
                     )
-                except Exception:
-                    pass
+                except Exception as diagnostic_exc:
+                    # Recording the failure is itself best-effort, but losing it
+                    # silently would leave a broken projector with no trace at
+                    # all once the warning below scrolls away.
+                    logger.error(
+                        "projection failure could not be recorded: revision=%s "
+                        "projector=%s projection_error=%s diagnostic_error=%s",
+                        state.revision,
+                        projector_name,
+                        type(exc).__name__,
+                        type(diagnostic_exc).__name__,
+                        exc_info=True,
+                    )
                 warnings.warn(
                     f"workflow state committed at revision {state.revision}, "
                     f"but compatibility projection failed ({type(exc).__name__})",

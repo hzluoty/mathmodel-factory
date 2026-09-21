@@ -262,6 +262,7 @@
 import { computed, defineAsyncComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './Icon.vue'
+import AsyncLoadError from './AsyncLoadError.vue'
 import ActionCenter from './ActionCenter.vue'
 import ContestTimingPanel from './ContestTimingPanel.vue'
 import ModelingDirectionPanel from './ModelingDirectionPanel.vue'
@@ -287,7 +288,12 @@ import { useRealtime } from '../composables/useRealtime.js'
 const TabFallback = {
   render: () => h('div', { class: 'tab-fallback' }, [h('div', { class: 'spinner' })]),
 }
-const asyncOpts = { loadingComponent: TabFallback, delay: 120 }
+// Without an error component Vue keeps rendering the loading fallback forever
+// when a lazy tab chunk cannot be loaded.
+const TabError = {
+  render: () => h(AsyncLoadError, { inline: true }),
+}
+const asyncOpts = { loadingComponent: TabFallback, errorComponent: TabError, delay: 120 }
 const PipelineTimeline = defineAsyncComponent({ loader: () => import('./PipelineTimeline.vue'), ...asyncOpts })
 const ProblemPlanPanel = defineAsyncComponent({ loader: () => import('./ProblemPlanPanel.vue'), ...asyncOpts })
 const LogConsole = defineAsyncComponent({ loader: () => import('./LogConsole.vue'), ...asyncOpts })

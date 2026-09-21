@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-09-18 — 修复项目工作台请求超时（审计重算堵塞事件循环）
+
+- 症状：打开项目后大面积出现「请求超时，请稍后重试」，任务图面板长期停在「正在加载任务图」。
+- 根因：工作台每 8 秒轮询 `/steps`、`/diagnostics`、`/contest-dashboard`，而这些 `async def` handler 直接在事件循环上做同步重活（单项目 `submission_fingerprint` 12s、`build_project_diagnostics` 11s、`build_contest_dashboard` 6.5s）。实测一个 `/diagnostics` 会把 `/problem-plan`（独立耗时 5.6ms）拖到 24.3s，前端 15s 上限因此全线超时。
+- `/steps` 与 `/diagnostics` 改为 `include_fingerprint=False`：两者只消费 `current_step` 与 `is_running`/`consultation_*`，不依赖证据指纹。`/steps` 由 12.1s 降到 0.08s。
+- `/status`、`/diagnostics`、`/steps`、`/contest-dashboard` 的阻塞工作在 `run_in_threadpool` 中执行，单个慢项目不再冻结事件循环（并发重压下 `/problem-plan` 由 24.3s 降到 1.7s）。
+- 修复 `factory_core/current_artifact_ownership.artifact_ownership` 的匹配病理：此前每个路径对约 88 条规则逐条重做路径规范化与 globstar 变体展开（单次请求 46 万次匹配）。现在路径只规范化一次、变体按 pattern 记忆化并对整次查找加 LRU 缓存；与冻结 v1 匹配器保持完全等价（新增 `tests/test_current_artifact_ownership_equivalence.py` 绑定该契约），全量扫描 1.95s → 0.22s。
+- 前端：`/status`、`/diagnostics`、`/contest-dashboard` 使用独立的 60s 审计超时，避免大项目的合法长计算被 15s 交互上限误判为超时。
+
+## 2026-09-18 — 修复控制台卡在加载兜底层（过期构建缓存）
+
+- 修复「登录后整页一直停在全屏 spinner」：`CommandPalette` 原先以 `v-if="isAuthenticated"` 常驻渲染，等于每次启动都预载该 chunk；当浏览器仍在运行旧构建、对应 chunk 已被新部署删除（404）时，`defineAsyncComponent` 会永久停留在 loading 兜底层并盖住整个控制台。现在只在打开面板时挂载，启动后改为后台静默预热。
+- 所有懒加载组件补上 `errorComponent`（新增 `AsyncLoadError`）：chunk 加载失败显示「界面资源加载失败 + 重新加载」，不再永久转圈。
+- 新增 `web/frontend/src/lib/chunkRecovery.js`：监听 `vite:preloadError`，对同一入口 bundle 只做一次受保护整页刷新；`index.html` 内联脚本覆盖入口 chunk 404 的最坏情况（整页空白）。
+- 生产缓存契约：nginx 对 `/`（HTML 文档）返回 `Cache-Control: no-cache`，带 hash 的 `/assets/*` 仍是 `public, immutable`。
+- `web/deploy.sh` 不再 `rm -rf "$WEB_ROOT"/*`：改为覆盖同步并只回收超过 `STALE_ASSET_DAYS`（默认 14 天）的历史资源，避免旧 `index.html` 引用已删除的 chunk；部署验收新增首页 `Cache-Control` 检查。
+- 更新 `web/docs/deployment/DEPLOYMENT.md` 的前端缓存契约与「控制台卡在全屏转圈」处置步骤。
+
 ## 2026-09-16 — Native mainline source split
 
 - Moved Authority/Phase 3–9, shadow Web surfaces and Legacy runners/tests/docs to a complete tracked-source baseline at `~/paper_new`; recorded hashes and relocation inventory.
