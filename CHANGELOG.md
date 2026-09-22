@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-09-22 — 修复 /logs 在事件循环上全量读取日志
+
+- 症状：`GET /api/projects/{n}/logs` 是普通 `async def`，**未**走 `run_in_threadpool`（2026-09-18 的修复只覆盖了 `/steps`、`/diagnostics`、`/contest-dashboard`），并且先 `read_text()` **整个文件**再切末尾 N 行。本机真实日志最大 **8.2 MB**，因此 `?lines=200` 的每次请求都会让后端在事件循环上同步读取、并丢掉其中几乎全部——与 2026-09-18 记录的问题同类。TUI 的日志面板（M3）会轮询该端点，故影响被放大。
+- 修复 `web/backend/project_api.py`：把目录扫描、`stat` 与读取整体移出路由，交给 `run_in_threadpool(recent_logs_payload, project, lines)`；选取规则（最新 mtime 优先、跳过空文件、`runner.log` 参与）逐条保持不变，并对读取途中日志被轮转（`stat` 抛 `OSError`）增加容错。
+- 新增 `web/backend/log_tail.py`：`read_tail_lines()` 从文件末尾按块反向读取，并把收集到的字节**一次性解码**——逐块解码会把跨块边界的多字节字符切坏。`max_bytes`（默认 1 MiB）是硬上限，逐块按剩余额度收紧；窗口起点若落在文件中间，则丢弃可能残缺的首行。
+- 实测（本机 `complete/cumcm2024b_no_judge_rep1/logs/step_5_codex_step5_full_solve_20260605_023516.log`，8.20 MB）：结果与旧的「全量读取再切片」**完全一致**，耗时 80.2 ms → **0.541 ms（148×）**，且不再占用事件循环。
+- 测试：新增 `tests/test_log_tail.py`（16 例，含用字节计数桩**证明读取确实有界**、以 7 字节块强制跨多字节字符边界、`max_bytes` 上限行为、缺失/空文件、传入目录等）；`tests/test_web_control_plane_api.py` 新增 4 例，其中一例以**线程身份**证明该 handler 已不在事件循环线程上执行——去掉线程池跳转该测试即失败（已做 falsification 验证，确认测试非空转）。相关集合 64 例通过。
+
+
+## 2026-09-22 — 隔离测试对生产认证库的写入（修复 admin 密码被测试覆盖的事故）
+
+- 事故：2026-09-20T12:13:33Z，`web/auth.db` 中 `admin` 的 `password_hash` 被改写为**仓库里已提交的测试字面量**（`tests/test_showcase_acl.py`、`tests/test_secret_ops_api.py`、`tests/test_control_plane_auth.py` 三处同值），而登录入口在 `0.0.0.0:443` 公网可达——等同于把 admin 凭据公开。审计依据：`audit_log` 第 45 行 `user.bootstrap_admin_sync {"password_updated": true}`，且 `web/auth.db` mtime `12:13:33.453` 与之毫秒级吻合；服务进程自 09-18 13:22 起未重启，故写入者不是服务本身。
+- 根因：`web/backend/main.py` 在 **import 时** 调用 `AuthStore.bootstrap_admin`，而 `AuthStore` 在 `AUTH_DB_FILE` 未设置时回落到 `<factory_root>/web/auth.db`。于是任何 import 后端 app 并自带 `ADMIN_PASSWORD` 的测试，都会把该密码写进正在运行的控制台所用的库。`tests/test_web_step8_5_metadata.py` 正是如此：它设置 `ADMIN_PASSWORD`，却不设 `AUTH_DB_FILE`/`FACTORY_ROOT`。
+- 已在未修复的检出上复现：仅运行该测试文件即创建 `<repo>/web/auth.db`，其 admin 哈希等于该测试的字面量（单用户 `admin`）。该复现产物保存在 `/tmp/repro-web-auth.db` 备查。
+- 修复 `tests/conftest.py`：在 **collection 之前**（conftest 模块导入期）把 `AUTH_DB_FILE` 重定向到仓库外的临时路径，因此 collection 期与用例期的 app import 都无法触达仓库库；使用 `setdefault`，自行设置该变量的测试行为完全不变（已确认无测试依赖其缺省）。
+- 新增 session 级 autouse 护栏：若测试期间 `<repo>/web/auth.db` 字节发生变化，整个会话以错误失败。该库为 `journal_mode=delete`（无 WAL 边车文件），故字节比对是可靠信号；提示信息同时说明"服务在其间被重启"也会改写该文件，避免误判。
+- 纵深防御：在肇事测试内显式设置 `AUTH_DB_FILE`。
+- 新增 `tests/test_auth_db_isolation.py` 固定该契约：断言 `AUTH_DB_FILE` 指向仓库之外，且 import 后端 app 前后仓库库字节不变。
+- 验证：修复后相关集合 94 例通过（auth/web/hygiene/joint-modeling/secret/deploy），且仓库库始终未被创建；护栏经临时探针验证会以会话错误形式失败。
+- 运维记录：生产 admin 密码已通过重启 `paper-factory-api.service` 从 GCP Secret Manager 重新同步（审计 `user.bootstrap_admin_sync` id=46，`password_updated: true`），并确认此前泄露的测试字面量已无法登录。注意 `bootstrap_admin` 使 Secret Manager 成为权威来源，因此直接改 `web/auth.db` 或本地 `.env` 都会在下次启动时被覆盖。
+
+
+## 2026-09-22 — Tier 0 仓库瘦身：清除退役资产与死引用
+
+- 删除 `prompts/` 中 34 个全仓零引用的社会科学时代模板（step1a–1e、step2_findings_*、step3_decider、step4_architect/auditor/decider/executor/ext1–7、step5_argument_research、step5_data_audit、step6_methods_audit、step7_paper_writer、step8_code_review、step9_review、step10_revision、step11_final_review、step12_citation_audit、step13_gate2_judge、step13_table_formatting、step15_derobotification）。保留 catalog/specialized 引用的 17 个现役模板与 `judges/` 三件套；`step13_gate2_judge.txt` 仅被历史文档引用，一并移除，历史版本经 Git 查询。
+- 删除 `scripts/` 中 12 个零引用脚本：ablation_monitor.sh、collect_verification_data.sh、delivery_override.py、quick_setup.sh、step13_judge_cache.py、test_p0_p1_fixes.sh、test_rerun0706_regression.sh、verify_numbers_legacy.py、verify_p0_lightweight.sh、verify_p0_lightweight_v2.sh、verify_p1_lightweight.sh、generate_code_appendix.py。核查同时确认 step8_5_gate.py、workflow_state.py、delivery_contract.py、evidence_payload_policy.py、publish_release.py、validate_cloudbuild.py 仍被 factory_core 或测试 import，均保留。
+- `submission_fingerprint.py` 哈希清单锁定的 judge/governance 脚本（packet_context、packet_evidence、solver_evidence_selection、run_codex_tui_judge、decision_receipt_repair、shadow_cutover、capability_harness 等）与数据抓取器（fetch_benchmark.sh、dxs_*.py）全部保留。
+- 移除 `demo_site/`（6 个 tracked 文件的静态演示页，零活引用）与 `xhxmt.github.io` 裸 gitlink（站点已按 2026-07-01 shutdown 计划关闭；物理检出保留在磁盘并加入 `.gitignore`，其自带 `.git` 历史完整）。
+- 清理游离的 `legacy/shell/__pycache__` 遗留物。`external/`、`work/`、`archive/`、`benchmark/` 等本地 gitignored 数据保持原位。
+
 ## 2026-09-18 — 修复项目工作台请求超时（审计重算堵塞事件循环）
 
 - 症状：打开项目后大面积出现「请求超时，请稍后重试」，任务图面板长期停在「正在加载任务图」。
