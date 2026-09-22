@@ -14,6 +14,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from starlette.concurrency import run_in_threadpool
 
+from .log_tail import read_tail_lines
+
 from .access_control import filter_visible_projects, require_admin, require_project_access
 from .auth import get_current_user
 from .auth_store import AuthStore, ProjectNameConflict
@@ -764,6 +766,57 @@ def get_steps(settings: Settings, project: Path, base_name: str) -> dict[str, An
     }
 
 
+def _log_mtime(path: Path) -> float:
+    """mtime, or 0 for a file that vanished mid-request (log rotation)."""
+
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _log_is_non_empty(path: Path) -> bool:
+    try:
+        return path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def recent_logs_payload(project: Path, lines: int) -> dict[str, Any]:
+    """Select the newest non-empty log and return its tail.
+
+    Blocking by design: the route hands this to the threadpool, so the directory
+    scan, the stat calls and the read stay off the event loop.  The selection
+    rule is unchanged from when this body lived inline in the route -- newest
+    mtime wins, non-empty files are preferred, and ``runner.log`` participates --
+    but the read is now bounded to the requested tail.
+    """
+
+    logs_dir = project / "logs"
+    if not logs_dir.is_dir():
+        return {"logs": []}
+
+    candidates: list[Path] = []
+    for pattern in (
+        "step_*.log",
+        "step_*_claude_*.log",
+        "step_*_codex_*.log",
+        "step_*_agy_*.log",
+    ):
+        candidates.extend(logs_dir.glob(pattern))
+    runner_log = logs_dir / "runner.log"
+    if runner_log.is_file():
+        candidates.append(runner_log)
+
+    candidates = sorted(candidates, key=_log_mtime, reverse=True)
+    candidates = [path for path in candidates if _log_is_non_empty(path)] or candidates
+    if not candidates:
+        return {"logs": []}
+
+    recent_log = candidates[0]
+    return {"logs": read_tail_lines(recent_log, lines), "file": recent_log.name}
+
+
 def _check_consultation_pending(project_path: Path) -> tuple[bool, str | None]:
     consult_dir = project_path / "consultation"
     if not consult_dir.is_dir():
@@ -1157,25 +1210,10 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
     ):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        logs_dir = project / "logs"
-        if not logs_dir.is_dir():
-            return {"logs": []}
-
-        all_logs = []
-        for pattern in ("step_*.log", "step_*_claude_*.log", "step_*_codex_*.log", "step_*_agy_*.log"):
-            all_logs.extend(logs_dir.glob(pattern))
-        runner_log = logs_dir / "runner.log"
-        if runner_log.is_file():
-            all_logs.append(runner_log)
-        all_logs = sorted(all_logs, key=lambda path: path.stat().st_mtime, reverse=True)
-        all_logs = [path for path in all_logs if path.stat().st_size > 0] or all_logs
-
-        if not all_logs:
-            return {"logs": []}
-
-        recent_log = all_logs[0]
-        content = recent_log.read_text(encoding="utf-8", errors="replace").splitlines()
-        return {"logs": content[-max(1, lines):], "file": recent_log.name}
+        # Directory scanning, stat calls and the tail read are all blocking, and
+        # the tail is read backwards so a multi-megabyte log no longer costs a
+        # full read on the event loop.
+        return await run_in_threadpool(recent_logs_payload, project, lines)
 
     @router.get("/api/projects/{base_name}/steps")
     async def get_project_steps(base_name: str, current_user: UserInfo = Depends(get_current_user(settings))):

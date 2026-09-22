@@ -3,6 +3,7 @@ import importlib
 import json
 import os
 import sys
+import threading
 import types
 from pathlib import Path
 
@@ -1226,3 +1227,87 @@ def test_removed_phase_flags_do_not_register_experimental_routes(tmp_path, monke
     assert not any("phase6" in path or "phase78" in path for path in paths)
     assert "web.backend.phase6_api" not in sys.modules
     assert "web.backend.phase78_api" not in sys.modules
+
+
+def test_recent_logs_runs_off_the_event_loop(tmp_path, monkeypatch):
+    """The blocking scan and read must be handed to the threadpool.
+
+    Asserted by thread identity: the payload function is probed for the thread it
+    runs on and compared with the loop thread.  A refactor that drops the
+    threadpool hop fails here rather than silently blocking the server.
+    """
+
+    mod = load_main_module(factory_root=tmp_path, auth_db_file=tmp_path / "web" / "auth.db")
+    user = mod.UserInfo(username="admin", role="admin")
+    logs_dir = tmp_path / "ongoing" / "demo" / "logs"
+    logs_dir.mkdir(parents=True)
+    (logs_dir / "runner.log").write_text("hello runner\n", encoding="utf-8")
+
+    original = mod.project_api.recent_logs_payload
+    seen = {}
+
+    def probe(project, lines):
+        seen["thread"] = threading.get_ident()
+        return original(project, lines)
+
+    monkeypatch.setattr(mod.project_api, "recent_logs_payload", probe)
+
+    loop_thread = {}
+
+    async def scenario():
+        loop_thread["thread"] = threading.get_ident()
+        return await mod.get_recent_logs("demo", lines=5, current_user=user)
+
+    response = asyncio.run(scenario())
+
+    assert response["file"] == "runner.log"
+    assert "hello runner" in response["logs"]
+    assert seen["thread"] != loop_thread["thread"], (
+        "the log scan and read must not run on the event loop thread"
+    )
+
+
+def test_recent_logs_tails_a_multi_megabyte_log(tmp_path):
+    mod = load_main_module(factory_root=tmp_path, auth_db_file=tmp_path / "web" / "auth.db")
+    user = mod.UserInfo(username="admin", role="admin")
+    logs_dir = tmp_path / "ongoing" / "demo" / "logs"
+    logs_dir.mkdir(parents=True)
+    big = logs_dir / "step_solve_20260922_120000.log"
+    lines = [f"line-{index}" for index in range(400_000)]
+    big.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert big.stat().st_size > 3_000_000
+
+    response = asyncio.run(mod.get_recent_logs("demo", lines=25, current_user=user))
+
+    assert response["file"] == big.name
+    assert response["logs"] == lines[-25:]
+
+
+def test_recent_logs_skips_an_empty_newer_file(tmp_path):
+    """The historical selection rule is preserved: empty files never win."""
+
+    mod = load_main_module(factory_root=tmp_path, auth_db_file=tmp_path / "web" / "auth.db")
+    user = mod.UserInfo(username="admin", role="admin")
+    logs_dir = tmp_path / "ongoing" / "demo" / "logs"
+    logs_dir.mkdir(parents=True)
+    content = logs_dir / "step_solve_20260922_120000.log"
+    empty = logs_dir / "step_setup_20260922_130000.log"
+    content.write_text("real content\n", encoding="utf-8")
+    empty.write_text("", encoding="utf-8")
+    os.utime(content, (1000, 1000))
+    os.utime(empty, (2000, 2000))
+
+    response = asyncio.run(mod.get_recent_logs("demo", lines=5, current_user=user))
+
+    assert response["file"] == content.name
+    assert "real content" in response["logs"]
+
+
+def test_recent_logs_without_a_logs_directory(tmp_path):
+    mod = load_main_module(factory_root=tmp_path, auth_db_file=tmp_path / "web" / "auth.db")
+    user = mod.UserInfo(username="admin", role="admin")
+    (tmp_path / "ongoing" / "demo").mkdir(parents=True)
+
+    response = asyncio.run(mod.get_recent_logs("demo", lines=5, current_user=user))
+
+    assert response == {"logs": []}
