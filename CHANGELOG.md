@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-22 — TUI 客户端 M2：项目详情（阶段产物 + 阻塞面板）
+
+- `apps/tui/client.py`：新增只读投影 `project_steps` / `project_diagnostics`，两者使用独立的 `HEAVY_TIMEOUT`（90s）而非 15s 交互上限——后端把它们放在线程池里执行，在大项目上会合法地超过交互时限。该接缝在 M0 就已留出，此处首次真正使用。`base_name` 经 URL 转义。
+- `apps/tui/contracts.py`：新增 `Artifact`/`Step`/`StepsView`/`Evidence`/`DiagnosticsView` 及归一化。诊断的阻塞信息在**所有**后端分支中都嵌在 `status` 之下（已核对 `_fallback_status`、`_native_state_unavailable`、`build_project_diagnostics`、replay 失败分支四处）；缺少 `status` 视为契约变更，而非"无阻塞"。evidence 的额外标量字段被折叠进 `summary`，因此后端新增一种 evidence kind 无需改动终端代码。**TUI 不内置 reason_code 映射表**，直接展示后端给出的 `reason_summary`，避免浏览器与终端各自维护一套工作流知识。
+- `apps/tui/screens/detail.py`：详情屏 = 进度条 + 阻塞面板（headline / state / 当前动作 / 来源 / 建议动作 / 证据清单）+ 阶段产物表（只渲染有产物的阶段与当前阶段，并标 `← 当前`）+ 汇总行（阶段总数、裁判结论、未决问题、是否已有论文）。
+- 刷新策略：单一加载器 + **在途守卫**。若一次加载尚未返回，定时 tick 被丢弃，而不是排队或被取消——取消会让慢项目永远加载不完，排队则会继续压迫已经繁忙的后端。间隔取 15s 而非计划中的 8s，理由是本仓 2026-09-18 的条目记录过后端事件循环被激进轮询压垮的问题。
+- 修正两处由测试发现的真实缺陷：
+  1. 阶段摘要与加载状态原先写在同一个 `Static` 上，`_load` 结束时的「已更新」会**覆盖**摘要，导致摘要信息实际丢失。现在摘要使用独立的 `#steps-summary`。
+  2. `DataTable` 自身绑定了 Enter（`select_cursor`），因此屏幕级 `enter` 绑定在表格获得焦点时**永不触发**，详情根本打不开。改为处理 `DataTable.RowSelected`；`o` 保留为备用键。
+- 非阻塞项目显示「无阻塞记录」而非留空；加载失败则接管面板（「诊断加载失败：…」）。两者视觉上可区分，「取不到」不会被误读为「没问题」。
+- 测试累计 59 例（含部署 preflight）：新增 `tests/test_tui_reads.py` 与 `tests/test_tui_detail.py`。其中超时预算是**行为验证**而非常量比对——用一个真实本地 HTTP 服务器延迟 250ms，证明 50ms 的交互上限会杀掉 login、却不会杀掉投影。（自定义 `httpx` transport 无法用于此测试：超时由具体 transport 实施，假 transport 根本不会抛 `ReadTimeout`。）
+
+
 ## 2026-09-22 — TUI 客户端 M1：实时项目表（WS 接入）
 
 - `apps/tui/realtime.py`：`/ws` 实时 feed。三条后端事实决定了它的形状：票据**一次性且 60s 过期**（因此每次连接尝试都重新签发，包括首次）；WS **只推项目状态、不推日志**（日志留待 M3 轮询）；断开是常态而非异常（后端重启、账号被禁用、空闲超时都会关闭连接），因此 feed 通过 `on_state` 上报 `connecting`/`live`/`disconnected` 而不抛异常，并以指数退避（1s → 30s 封顶）重连直到 `stop()`。

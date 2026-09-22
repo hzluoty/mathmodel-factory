@@ -18,6 +18,7 @@ from textual.widgets.data_table import RowDoesNotExist
 from ..client import ControlPlaneClient
 from ..contracts import ProjectRow
 from ..realtime import CONNECTING, DISCONNECTED, LIVE, RealtimeFeed
+from .detail import ProjectDetailScreen
 
 COLUMNS: tuple[tuple[str, str, int], ...] = (
     ("base_name", "项目", 36),
@@ -58,6 +59,10 @@ class ProjectsScreen(Screen[None]):
     """
 
     BINDINGS = [
+        # Enter is deliberately absent: DataTable binds it to select_cursor, so a
+        # screen-level Enter binding never fires while the table has focus.  The
+        # row-selected message below is what actually opens the detail.
+        ("o", "open_detail", "详情"),
         ("r", "reconnect", "重连"),
         ("q", "quit_app", "退出"),
     ]
@@ -75,7 +80,9 @@ class ProjectsScreen(Screen[None]):
         self._realtime_connector = realtime_connector
         self._realtime_sleep = realtime_sleep
         self.feed: RealtimeFeed | None = None
-        self._present: set[str] = set()
+        # Kept so the detail screen can be opened for the row under the cursor;
+        # the table itself only stores rendered strings.
+        self._rows: dict[str, ProjectRow] = {}
         # Mirrors the rendered feed state so tests need not read widget internals.
         self.feed_state: tuple[str, str] = (CONNECTING, "")
 
@@ -141,7 +148,7 @@ class ProjectsScreen(Screen[None]):
         seen = {row.base_name for row in rows}
         for row in rows:
             self._upsert(row)
-        for base_name in sorted(self._present - seen):
+        for base_name in sorted(set(self._rows) - seen):
             self._remove(base_name)
 
     def _on_project_updated(self, row: ProjectRow) -> None:
@@ -165,12 +172,13 @@ class ProjectsScreen(Screen[None]):
     def _upsert(self, row: ProjectRow) -> None:
         table = self.query_one("#projects", DataTable)
         cells = self._cells(row)
-        if row.base_name in self._present:
+        if row.base_name in self._rows:
             for key, value in cells.items():
                 table.update_cell(row.base_name, key, value)
+            self._rows[row.base_name] = row
             return
         table.add_row(*cells.values(), key=row.base_name)
-        self._present.add(row.base_name)
+        self._rows[row.base_name] = row
 
     def _remove(self, base_name: str) -> None:
         table = self.query_one("#projects", DataTable)
@@ -180,9 +188,30 @@ class ProjectsScreen(Screen[None]):
             # The table owns its rows; if it already lost this one, only the
             # local index needs correcting.
             pass
-        self._present.discard(base_name)
+        self._rows.pop(base_name, None)
 
     # -- actions ---------------------------------------------------------
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Enter (or a click) on the focused table selects a row -> detail."""
+
+        event.stop()
+        self._open_detail(str(event.row_key.value))
+
+    def action_open_detail(self) -> None:
+        """Open the detail screen for the row under the cursor (``o``)."""
+
+        table = self.query_one("#projects", DataTable)
+        if not self._rows or table.row_count == 0:
+            return
+        cell_key = table.coordinate_to_cell_key(table.cursor_coordinate)
+        self._open_detail(str(cell_key.row_key.value))
+
+    def _open_detail(self, base_name: str) -> None:
+        row = self._rows.get(base_name)
+        if row is None:
+            return
+        self.app.push_screen(ProjectDetailScreen(row, self.client))
 
     def action_quit_app(self) -> None:
         self.app.exit()

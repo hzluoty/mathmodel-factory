@@ -19,15 +19,27 @@ exceed that on large projects, so callers may pass a longer per-request timeout.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
-from .contracts import Session, normalize_session
+from .contracts import (
+    DiagnosticsView,
+    Session,
+    StepsView,
+    normalize_diagnostics,
+    normalize_session,
+    normalize_steps,
+)
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
 # Interactive ceiling, matching the browser client's own 15s cap.
 DEFAULT_TIMEOUT = 15.0
+
+# The stage and diagnostics projections run in the backend's threadpool and take
+# seconds on a large project, so they must not be judged by the interactive cap.
+HEAVY_TIMEOUT = 90.0
 
 
 class ControlPlaneError(RuntimeError):
@@ -176,6 +188,34 @@ class ControlPlaneClient:
         scheme, _, host = self.base_url.partition("://")
         ws_scheme = "wss" if scheme == "https" else "ws"
         return f"{ws_scheme}://{host}/ws?ticket={ticket}"
+
+    # -- read-only projections -------------------------------------------
+
+    async def project_steps(self, base_name: str) -> StepsView:
+        """Stage and artifact projection for one project."""
+
+        payload = await self._request_json(
+            "GET",
+            f"/api/projects/{quote(base_name, safe='')}/steps",
+            timeout=HEAVY_TIMEOUT,
+        )
+        try:
+            return normalize_steps(payload)
+        except ValueError as exc:
+            raise ControlPlaneError(str(exc)) from exc
+
+    async def project_diagnostics(self, base_name: str) -> DiagnosticsView:
+        """The backend's own account of why the project is where it is."""
+
+        payload = await self._request_json(
+            "GET",
+            f"/api/projects/{quote(base_name, safe='')}/diagnostics",
+            timeout=HEAVY_TIMEOUT,
+        )
+        try:
+            return normalize_diagnostics(payload)
+        except ValueError as exc:
+            raise ControlPlaneError(str(exc)) from exc
 
     # -- lifecycle -------------------------------------------------------
 

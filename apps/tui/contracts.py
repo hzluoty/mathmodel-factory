@@ -136,6 +136,14 @@ def as_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
+def as_text_list(value: Any) -> tuple[str, ...]:
+    """Coerce ``value`` to a tuple of strings, dropping anything else."""
+
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item) for item in value if item is not None)
+
+
 def normalize_session(payload: Any) -> Session:
     """Build a :class:`Session` from a login response.
 
@@ -183,4 +191,198 @@ def normalize_project(payload: Any) -> ProjectRow:
         consultation_pending=as_bool(payload.get("consultation_pending")),
         selection_pending=as_bool(payload.get("selection_pending")),
         workflow_error=as_text(payload.get("workflow_error")),
+    )
+
+
+# --- stage and diagnostics projections ----------------------------------------------
+#
+# These mirror the nested shape the backend actually returns.  ``/diagnostics``
+# nests the blocker under ``status`` in every one of its branches, and the
+# human-readable ``reason_summary`` is used as-is: the terminal deliberately
+# keeps no reason-code table of its own, so it cannot drift from the backend.
+
+
+@dataclass(frozen=True)
+class Artifact:
+    """One produced file, as ``_meta`` reports it."""
+
+    path: str
+    name: str = ""
+    size: int = 0
+    mtime: str = ""
+
+
+@dataclass(frozen=True)
+class Step:
+    index: int
+    artifacts: tuple[Artifact, ...] = ()
+
+    @property
+    def artifact_count(self) -> int:
+        return len(self.artifacts)
+
+
+@dataclass(frozen=True)
+class StepsView:
+    current_step: int = 0
+    steps: tuple[Step, ...] = ()
+    verdict: str = ""
+    open_issues: int = 0
+    paper_available: bool = False
+
+    @property
+    def declared_total(self) -> int:
+        return len(self.steps)
+
+    def artifacts_for(self, index: int) -> tuple[Artifact, ...]:
+        for step in self.steps:
+            if step.index == index:
+                return step.artifacts
+        return ()
+
+    def meaningful_steps(self, floor: int = 0) -> tuple[Step, ...]:
+        """Steps worth a row: those with artifacts, plus the current one.
+
+        The contract declares 17 stages; rendering all of them buries the two
+        or three that carry information.
+        """
+
+        keep = self.current_step if floor <= 0 else max(floor, self.current_step)
+        return tuple(
+            step for step in self.steps if step.artifacts or step.index == keep
+        )
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """One evidence pointer.
+
+    ``summary`` carries whatever extra scalar fields the backend attached, so a
+    new evidence kind renders without a matching change here.
+    """
+
+    kind: str = ""
+    path: str = ""
+    summary: str = ""
+
+    @property
+    def label(self) -> str:
+        parts = [part for part in (self.kind, self.path) if part]
+        text = " ".join(parts) if parts else "证据"
+        return f"{text}（{self.summary}）" if self.summary else text
+
+
+@dataclass(frozen=True)
+class DiagnosticsView:
+    source: str = ""
+    state: str = ""
+    current_step: int = 0
+    current_action: str = ""
+    reason_code: str = ""
+    reason_summary: str = ""
+    suggested_actions: tuple[str, ...] = ()
+    evidence: tuple[Evidence, ...] = ()
+
+    @property
+    def blocked(self) -> bool:
+        return bool(self.reason_code or self.reason_summary)
+
+    @property
+    def headline(self) -> str:
+        if not self.blocked:
+            return "无阻塞记录"
+        if self.reason_code and self.reason_summary:
+            return f"{self.reason_code} — {self.reason_summary}"
+        return self.reason_code or self.reason_summary
+
+
+def _artifacts(value: Any) -> tuple[Artifact, ...]:
+    if not isinstance(value, list):
+        return ()
+    artifacts: list[Artifact] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        artifacts.append(
+            Artifact(
+                path=as_text(item.get("path")),
+                name=as_text(item.get("name")),
+                size=as_int(item.get("size")),
+                mtime=as_text(item.get("mtime")),
+            )
+        )
+    return tuple(artifacts)
+
+
+_EVIDENCE_NAMED = {"kind", "path"}
+
+
+def _evidence(value: Any) -> tuple[Evidence, ...]:
+    if not isinstance(value, list):
+        return ()
+    rows: list[Evidence] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        extras = " ".join(
+            f"{key}={item[key]}"
+            for key in sorted(item)
+            if key not in _EVIDENCE_NAMED
+            and isinstance(item[key], (str, int, float, bool))
+        )
+        rows.append(
+            Evidence(
+                kind=as_text(item.get("kind")),
+                path=as_text(item.get("path")),
+                summary=extras,
+            )
+        )
+    return tuple(rows)
+
+
+def normalize_steps(payload: Any) -> StepsView:
+    """Build a :class:`StepsView`. Unusable entries are skipped, not fatal."""
+
+    if not isinstance(payload, dict):
+        raise ValueError("阶段投影不是 JSON 对象")
+    raw_steps = payload.get("steps")
+    steps: list[Step] = []
+    if isinstance(raw_steps, list):
+        for item in raw_steps:
+            if not isinstance(item, dict):
+                continue
+            steps.append(
+                Step(
+                    index=as_int(item.get("index"), -1),
+                    artifacts=_artifacts(item.get("artifacts")),
+                )
+            )
+    return StepsView(
+        current_step=as_int(payload.get("current_step")),
+        steps=tuple(steps),
+        verdict=as_text(payload.get("verdict")),
+        open_issues=as_int(payload.get("open_issues")),
+        paper_available=as_bool(payload.get("paper_available")),
+    )
+
+
+def normalize_diagnostics(payload: Any) -> DiagnosticsView:
+    """Build a :class:`DiagnosticsView` from the backend's blocker projection."""
+
+    if not isinstance(payload, dict):
+        raise ValueError("诊断投影不是 JSON 对象")
+    status = payload.get("status")
+    if not isinstance(status, dict):
+        # Every backend branch nests the blocker under "status"; a payload
+        # without it is a contract change, not an empty diagnosis.
+        raise ValueError("诊断投影缺少 status")
+    return DiagnosticsView(
+        source=as_text(payload.get("source")),
+        state=as_text(status.get("state")),
+        current_step=as_int(status.get("current_step")),
+        current_action=as_text(status.get("current_action")),
+        reason_code=as_text(status.get("reason_code")),
+        reason_summary=as_text(status.get("reason_summary")),
+        suggested_actions=as_text_list(status.get("suggested_actions")),
+        evidence=_evidence(status.get("evidence")),
     )
