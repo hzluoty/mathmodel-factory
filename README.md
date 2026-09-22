@@ -34,6 +34,21 @@ cd web
 
 详细使用说明请参阅 [`web/README.md`](web/README.md)。
 
+## TUI 客户端（终端）
+
+除浏览器控制台外，仓库还提供终端客户端 `apps/tui/`，用于无图形界面或偏好键盘操作的场景。它是**只读客户端**，且不复制任何工作流逻辑：渲染的字段全部来自 `web/backend` 已提供的投影，因此终端与浏览器不会各自演进出两套契约。
+
+先启动后端（`web/start_dashboard.sh`），再运行：
+
+```bash
+cd /home/tfisher/paper_factory
+uv sync --extra tui     # 首次，安装 textual
+./run_tui.sh            # 默认连 http://127.0.0.1:8000
+./run_tui.sh --base-url http://其它主机:8000
+```
+
+登录屏需要真实账号；密码由你在登录屏输入，仅驻内存、不落盘、不写入日志或诊断。键位与刷新策略见 [`web/README.md`](web/README.md#终端客户端tui)。
+
 ## 包含内容
 
 - `launch_agents.sh`：本地启动器，包含 `new`、`resume`、`pause`、`run`、`attach`、`trace` 和 `status` 等命令。
@@ -48,6 +63,7 @@ cd web
 - `scripts/`：辅助脚本，用于 Antigravity 路由、MinerU 解析、数字校验和清理工作。
 - `evaluation/`：评分解析器以及针对外部大语言模型（LLM）裁判的基准校准脚本。
 - `experiments/`：消融实验测试工具，用于测试不同流程机制对结果的影响。
+- **`apps/tui/` 与 `run_tui.sh`**：Web 控制面的只读终端客户端（Textual），监控项目状态、阻塞原因与日志尾随。
 - **`docs/guides/`**：优秀论文基准文档（可视化与写作规范）
 
 诸如 `analysis_guide.md`、`stata_submit.sh` 和 `stata_wrapper.sh` 等旧文件仅为历史参考而保留，不再构成可执行社会科学工作流。新建模项目请遵循 `modeling_guide.md` 并使用 `solver_submit.sh`。

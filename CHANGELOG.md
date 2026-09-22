@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-09-22 — TUI 客户端 M4：打磨与文档（M0–M3 收尾）
+
+- 用 `uvx ruff check`（ruff 0.16.8）对 `apps/tui/` 与 TUI 测试做了一次真实 lint，而不是目测。修掉 13 项：1 处未使用导入（F401）、4 处导入顺序（I001）、7 处多余引号注解（UP037，各文件都有 `from __future__ import annotations`，引号本就冗余）、1 处函数末尾多余的 `return None`（RET501/PLR1711），并把 3 处自返回 dunder（`__aenter__`/`__aiter__`）的注解改为 `typing.Self`（PYI034）。
+- **有意保留、并逐条给出理由的 13 项**（本仓没有 ruff 配置，ruff 的默认宽集并非本仓既定标准，因此不盲目照改）：
+  - `RUF012`（4 处）：Textual 的 `CSS`/`BINDINGS` 就是普通类属性，加 `ClassVar` 属噪声。
+  - `TRY004`（6 处）：归一化函数对「载荷不是 dict」抛 `ValueError`。改成 `TypeError` 反而**更危险**——各调用点统一捕获 `ValueError` 并包装为 `ControlPlaneError`，拆出第二种异常类型会在 6 个调用点制造未捕获路径，而行为毫无差别。
+  - `UP017`（1 处）：`timezone.utc` → `datetime.UTC` 会让该文件与本仓主流不一致（全仓 `timezone.utc` 6 处、`datetime.UTC` 0 处）。
+  - `SIM102`（1 处）：合并嵌套 `if` 会让「已停止项目只取一次」的注释离开它所解释的那个条件。
+  - `BLE001`（1 处）：重连循环里的 `except Exception` 是刻意设计——任何失败都应转为退避重连，而不是让 feed 任务静默死掉；`CancelledError` 已在其上方单独放行。
+- footer 去重：应用级 `Ctrl+Q` 改为 `show=False`，不再与各屏的 `q` 重复显示「退出」（实测 footer 现为 `o 详情 | r 重连 | q 退出`）。
+- 资源检查：以 `-W error::ResourceWarning` 跑全部 TUI 测试，无任何告警——我在 M2 复核里提到的「未关闭 socket」并不成立，此处撤回该条目。
+- 文档：`README.md` 新增「TUI 客户端（终端）」一节及「包含内容」条目；`web/README.md` 新增「终端客户端（TUI）」一节，含启动命令、完整键位表与刷新节奏说明。
+- 测试 74 例通过（67 TUI + 7 部署 preflight）；端到端冒烟（登录 → 项目表 → 详情 → 日志 → 过滤）复跑通过。
+
+
 ## 2026-09-22 — TUI 客户端 M3：日志尾随（/logs 轮询）
 
 - `apps/tui/client.py`：新增 `project_logs(base_name, lines=200)`，行数下限夹到 1（后端为 `max(1, lines)`），使用 `HEAVY_TIMEOUT`，`base_name` 经 URL 转义。

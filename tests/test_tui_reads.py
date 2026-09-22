@@ -14,9 +14,9 @@ import httpx
 import pytest
 
 from apps.tui.client import (
+    ConnectionFailed,
     ControlPlaneClient,
     ControlPlaneError,
-    ConnectionFailed,
     ForbiddenError,
 )
 from apps.tui.contracts import (

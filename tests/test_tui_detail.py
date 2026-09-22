@@ -10,9 +10,10 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from typing import Self
 
 import httpx
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.widgets import DataTable, Static
 
 from apps.tui.client import ControlPlaneClient, ControlPlaneError
@@ -143,16 +144,16 @@ class _OneShotFeed:
             {"type": "status_update", "projects": projects}
         )
 
-    def __call__(self, _url: str) -> "_OneShotFeed":
+    def __call__(self, _url: str) -> Self:
         return self
 
-    async def __aenter__(self) -> "_OneShotFeed":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *_exc: object) -> None:
         return None
 
-    def __aiter__(self) -> "_OneShotFeed":
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> str:

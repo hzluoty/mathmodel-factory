@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Self
 
 import httpx
 import pytest
@@ -81,13 +82,13 @@ class _FailingConn:
 class _EmptyConn:
     """A connection that opens, yields nothing, and closes cleanly."""
 
-    async def __aenter__(self) -> "_EmptyConn":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *_exc: object) -> None:
         return None
 
-    def __aiter__(self) -> "_EmptyConn":
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self):
@@ -134,7 +135,6 @@ def test_feed_delivers_snapshots_from_a_real_socket() -> None:
 
         async def process_request(_connection, request):
             paths.append(request.path)
-            return None
 
         async with serve(
             handler, "127.0.0.1", 0, process_request=process_request

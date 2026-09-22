@@ -19,13 +19,13 @@ import asyncio
 from collections.abc import Callable
 
 import httpx
+from textual.widgets import DataTable, Input
 
 from apps.tui.app import PaperFactoryTui
 from apps.tui.client import ControlPlaneClient
 from apps.tui.realtime import DISCONNECTED
 from apps.tui.screens.login import LoginScreen
 from apps.tui.screens.projects import ProjectsScreen
-from textual.widgets import DataTable, Input
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -63,7 +63,7 @@ class _RaisingConnector:
     def __init__(self, exc: Exception | None = None) -> None:
         self._exc = exc or OSError("no websocket backend")
 
-    def __call__(self, _url: str) -> "_RaisingConnector":
+    def __call__(self, _url: str) -> _RaisingConnector:
         return self
 
     async def __aenter__(self):

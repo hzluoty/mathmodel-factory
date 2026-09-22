@@ -28,7 +28,9 @@ class PaperFactoryTui(App[None]):
     }
     """
 
-    BINDINGS = [Binding("ctrl+q", "quit", "退出")]
+    # Screens bind "q" themselves, so the global escape hatch is kept out of
+    # the footer to avoid showing 退出 twice.
+    BINDINGS = [Binding("ctrl+q", "quit", "退出", show=False)]
 
     def __init__(
         self,

@@ -18,7 +18,7 @@ exceed that on large projects, so callers may pass a longer per-request timeout.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 from urllib.parse import quote
 
 import httpx
@@ -243,7 +243,7 @@ class ControlPlaneClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def __aenter__(self) -> "ControlPlaneClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *_exc: object) -> None:
