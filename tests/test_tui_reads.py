@@ -22,8 +22,10 @@ from apps.tui.client import (
 from apps.tui.contracts import (
     Artifact,
     DiagnosticsView,
+    LogsView,
     StepsView,
     normalize_diagnostics,
+    normalize_logs,
     normalize_steps,
 )
 
@@ -288,3 +290,79 @@ def test_a_clean_project_reports_no_blocker() -> None:
     )
     assert view.blocked is False
     assert view.headline == "无阻塞记录"
+
+
+# --- logs ---------------------------------------------------------------------------
+
+
+def test_project_logs_requests_a_bounded_tail() -> None:
+    seen: list[tuple[str, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.path, request.url.params.get("lines")))
+        return httpx.Response(
+            200, json={"logs": ["a", "b"], "file": "step_6_codex.log"}
+        )
+
+    async def scenario() -> LogsView:
+        client = _client(handler)
+        view = await client.project_logs("alpha", lines=50)
+        await client.aclose()
+        return view
+
+    view = asyncio.run(scenario())
+    assert seen == [("/api/projects/alpha/logs", "50")]
+    assert view.file == "step_6_codex.log"
+    assert view.lines == ("a", "b")
+
+
+def test_project_logs_clamps_a_nonsensical_line_count() -> None:
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.params.get("lines"))
+        return httpx.Response(200, json={"logs": []})
+
+    async def scenario() -> None:
+        client = _client(handler)
+        await client.project_logs("alpha", lines=0)
+        await client.aclose()
+
+    asyncio.run(scenario())
+    # The backend would reject 0; asking for at least one line is the sane clamp.
+    assert seen == ["1"]
+
+
+def test_empty_log_payload_has_no_file_key() -> None:
+    handler, _ = _routes({"/api/projects/alpha/logs": (200, {"logs": []})})
+
+    async def scenario() -> LogsView:
+        client = _client(handler)
+        view = await client.project_logs("alpha")
+        await client.aclose()
+        return view
+
+    view = asyncio.run(scenario())
+    assert view.file == ""
+    assert view.lines == ()
+
+
+def test_forbidden_logs_raise_forbidden() -> None:
+    handler, _ = _routes({"/api/projects/alpha/logs": (403, {"detail": "forbidden"})})
+
+    async def scenario() -> None:
+        client = _client(handler)
+        with pytest.raises(ForbiddenError):
+            await client.project_logs("alpha")
+        await client.aclose()
+
+    asyncio.run(scenario())
+
+
+def test_normalize_logs_rejects_non_objects_and_keeps_junk_as_text() -> None:
+    with pytest.raises(ValueError):
+        normalize_logs(["not", "a", "dict"])
+    view = normalize_logs({"logs": ["ok", 42, None]})
+    # as_text treats None as absent, so a null entry becomes an empty line
+    # rather than the string "None".  The backend only ever sends strings here.
+    assert view.lines == ("ok", "42", "")

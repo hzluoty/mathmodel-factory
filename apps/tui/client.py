@@ -25,9 +25,11 @@ import httpx
 
 from .contracts import (
     DiagnosticsView,
+    LogsView,
     Session,
     StepsView,
     normalize_diagnostics,
+    normalize_logs,
     normalize_session,
     normalize_steps,
 )
@@ -214,6 +216,25 @@ class ControlPlaneClient:
         )
         try:
             return normalize_diagnostics(payload)
+        except ValueError as exc:
+            raise ControlPlaneError(str(exc)) from exc
+
+    async def project_logs(self, base_name: str, *, lines: int = 200) -> LogsView:
+        """Tail of the newest log file for one project.
+
+        The backend reads the *whole* file on the event loop and then slices the
+        tail, and these files reach several megabytes here, so this takes the
+        heavy budget and the caller must poll it sparingly.
+        """
+
+        payload = await self._request_json(
+            "GET",
+            f"/api/projects/{quote(base_name, safe='')}/logs",
+            params={"lines": max(1, lines)},
+            timeout=HEAVY_TIMEOUT,
+        )
+        try:
+            return normalize_logs(payload)
         except ValueError as exc:
             raise ControlPlaneError(str(exc)) from exc
 

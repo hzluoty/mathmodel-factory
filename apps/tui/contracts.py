@@ -386,3 +386,34 @@ def normalize_diagnostics(payload: Any) -> DiagnosticsView:
         suggested_actions=as_text_list(status.get("suggested_actions")),
         evidence=_evidence(status.get("evidence")),
     )
+
+
+@dataclass(frozen=True)
+class LogsView:
+    """The tail of the single newest log file the backend exposes.
+
+    ``/logs`` returns one file -- the most recently modified non-empty one --
+    rather than a per-stage list, so the terminal shows which file this is
+    instead of implying the view spans all of them.
+    """
+
+    file: str = ""
+    lines: tuple[str, ...] = ()
+
+    def filtered(self, needle: str) -> tuple[str, ...]:
+        if not needle:
+            return self.lines
+        lowered = needle.lower()
+        return tuple(line for line in self.lines if lowered in line.lower())
+
+
+def normalize_logs(payload: Any) -> LogsView:
+    """Build a :class:`LogsView`.  ``{"logs": []}`` carries no ``file`` key."""
+
+    if not isinstance(payload, dict):
+        raise ValueError("日志投影不是 JSON 对象")
+    raw = payload.get("logs")
+    lines: tuple[str, ...] = ()
+    if isinstance(raw, list):
+        lines = tuple(as_text(item) for item in raw)
+    return LogsView(file=as_text(payload.get("file")), lines=lines)

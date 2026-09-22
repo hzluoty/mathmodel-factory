@@ -17,6 +17,7 @@ from textual.widgets import DataTable, Static
 
 from apps.tui.client import ControlPlaneClient, ControlPlaneError
 from apps.tui.contracts import (
+    LogsView,
     ProjectRow,
     Session,
     normalize_diagnostics,
@@ -79,13 +80,24 @@ DIAG_CLEAN = normalize_diagnostics(
 class _StubClient:
     """Duck-typed stand-in for ControlPlaneClient."""
 
-    def __init__(self, steps=None, diagnostics=None, error=None, gate=None) -> None:
+    def __init__(
+        self,
+        steps=None,
+        diagnostics=None,
+        error=None,
+        gate=None,
+        logs=None,
+        log_error=None,
+    ) -> None:
         self._steps = steps
         self._diagnostics = diagnostics
         self._error = error
         self._gate = gate
+        self._logs = logs
+        self._log_error = log_error
         self.step_calls = 0
         self.diag_calls = 0
+        self.log_calls = 0
 
     async def project_steps(self, _base_name: str):
         self.step_calls += 1
@@ -102,6 +114,14 @@ class _StubClient:
         if self._error is not None:
             raise self._error
         return self._diagnostics
+
+    async def project_logs(self, _base_name: str, *, lines: int = 200):
+        self.log_calls += 1
+        if self._gate is not None:
+            await self._gate.wait()
+        if self._log_error is not None:
+            raise self._log_error
+        return self._logs if self._logs is not None else LogsView()
 
 
 class _Harness(App[None]):
@@ -248,7 +268,7 @@ def test_steps_table_marks_the_current_step_and_lists_artifacts() -> None:
 
 
 def test_overlapping_refresh_does_not_double_fetch() -> None:
-    async def scenario() -> tuple[int, int, bool]:
+    async def scenario() -> tuple[int, int, int, bool]:
         gate = asyncio.Event()
         stub = _StubClient(STEPS, DIAG_BLOCKED, gate=gate)
         screen = ProjectDetailScreen(ROW, stub, auto_refresh=False)
@@ -260,13 +280,15 @@ def test_overlapping_refresh_does_not_double_fetch() -> None:
             screen.action_refresh()
             for _ in range(20):
                 await pilot.pause()
-            counts = (stub.step_calls, stub.diag_calls)
+            counts = (stub.step_calls, stub.diag_calls, stub.log_calls)
             gate.set()
             settled = await _settle(pilot, lambda: screen.steps is not None)
-            return counts[0], counts[1], settled
+            return counts[0], counts[1], counts[2], settled
 
-    step_calls, diag_calls, settled = asyncio.run(scenario())
+    step_calls, diag_calls, log_calls, settled = asyncio.run(scenario())
     assert (step_calls, diag_calls) == (1, 1), "in-flight load must absorb the ticks"
+    # The log pane is hidden here, so logs are never requested at all.
+    assert log_calls == 0
     assert settled is True
 
 
