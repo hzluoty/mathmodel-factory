@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-22 — TUI 客户端 M0：骨架与登录（Web 控制平面的终端客户端）
+
+- 新增 `apps/tui/`：Textual 终端客户端，定位为 `web/backend` 的**只读客户端**，不复制任何工作流逻辑——它渲染的字段全部来自现有投影，避免浏览器与终端两套投影各自漂移。
+- 新增 `tui` 可选依赖组（`textual==8.2.8`）与入口点 `factory-tui`（同时支持 `python -m apps.tui`），并新增 `run_tui.sh` 启动器；缺少 `textual` 时启动器给出 `uv sync --extra tui` 的明确提示而不是抛 traceback。
+- `apps/tui/client.py`：REST/WS 传输层。失败按可重试语义分类为 `ConnectionFailed` / `AuthError` / `ForbiddenError`，而不是把状态码塞进一条字符串；交互请求沿用前端 15s 上限，重投影（`/diagnostics`、`/steps`）使用独立的 90s 预算。`access_token` 仅驻内存，不落盘、不渲染。
+- `apps/tui/screens/login.py`：凭据仅在一次请求内存在，失败信息不回显密码；`apps/tui/screens/home.py` 为登录后占位屏，M1 将由实时项目表替换。
+- 测试：`tests/test_tui_client.py`（`httpx.MockTransport` 假后端）与 `tests/test_tui_app.py`（Textual `run_test` 无头 Pilot），共 22 例通过；未新增 dev 依赖（用 `asyncio.run` 而非 `pytest-asyncio`）。
+- 已对真实后端 `127.0.0.1:8000` 做契约冒烟：`GET /` 返回 API banner，无效凭据正确映射为 `AuthError`；登录屏经无头渲染确认（标题、后端地址、用户名/密码、登录/退出）。
+- 合并提示：本条目与 `fix/audit-lease-deadlock-and-realtime-scope` 上未提交的 Tier-0 瘦身条目都新增在 CHANGELOG 顶部，合并时此处会出现一处易解的冲突。
+
+
 ## 2026-09-18 — 修复项目工作台请求超时（审计重算堵塞事件循环）
 
 - 症状：打开项目后大面积出现「请求超时，请稍后重试」，任务图面板长期停在「正在加载任务图」。
