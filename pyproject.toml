@@ -39,6 +39,7 @@ cloud = [
 ]
 tui = [
   "textual==8.2.8",
+  "websockets==16.0",
 ]
 
 [dependency-groups]

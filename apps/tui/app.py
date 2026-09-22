@@ -6,13 +6,15 @@ stay render-only so a screen can be driven in tests without a live backend.
 
 from __future__ import annotations
 
+from typing import Any
+
 from textual.app import App
 from textual.binding import Binding
 
 from .client import DEFAULT_BASE_URL, ControlPlaneClient
 from .contracts import Session
-from .screens.home import HomeScreen
 from .screens.login import LoginScreen
+from .screens.projects import ProjectsScreen
 
 
 class PaperFactoryTui(App[None]):
@@ -33,11 +35,16 @@ class PaperFactoryTui(App[None]):
         base_url: str = DEFAULT_BASE_URL,
         *,
         client: ControlPlaneClient | None = None,
+        realtime_connector: Any = None,
+        realtime_sleep: Any = None,
     ) -> None:
         super().__init__()
         self.base_url = base_url
         # Injection point for tests: a client backed by a fake transport.
         self.client = client if client is not None else ControlPlaneClient(base_url)
+        # Forwarded to RealtimeFeed; see ProjectsScreen.
+        self._realtime_connector = realtime_connector
+        self._realtime_sleep = realtime_sleep
         self.session: Session | None = None
 
     def on_mount(self) -> None:
@@ -51,4 +58,10 @@ class PaperFactoryTui(App[None]):
             return
         self.session = session
         self.sub_title = f"{session.username}（{session.role}） · {self.base_url}"
-        self.push_screen(HomeScreen(session, self.base_url))
+        self.push_screen(
+            ProjectsScreen(
+                self.client,
+                realtime_connector=self._realtime_connector,
+                realtime_sleep=self._realtime_sleep,
+            )
+        )
