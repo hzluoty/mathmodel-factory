@@ -24,8 +24,15 @@ def load_main_module(factory_root, auth_db_file):
         jwt_secret="j" * 32,
         admin_password="joint-modeling-test-password",
     )
+    # The push API is audience-scoped: there is no unscoped broadcast to stub.
+    manager = SimpleNamespace(
+        publish_project=AsyncMock(),
+        publish_user=AsyncMock(),
+        publish_admins=AsyncMock(),
+        publish_public=AsyncMock(),
+    )
     router = project_api.create_project_router(
-        settings, ticket_store=None, manager=SimpleNamespace(broadcast=AsyncMock()),
+        settings, ticket_store=None, manager=manager,
     )
     return SimpleNamespace(
         app=router, project_api=project_api, UserInfo=UserInfo, HTTPException=HTTPException,

@@ -30,7 +30,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --extra web --group dev --locked
+      - run: uv sync --extra web --extra tui --group dev --locked
       - run: uv run python -m compileall -q factory_core cloud web/backend
       - run: >-
           uv run pytest -q

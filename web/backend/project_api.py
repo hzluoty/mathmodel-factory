@@ -12,6 +12,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, Response
+from starlette.concurrency import run_in_threadpool
+
+from .log_tail import read_tail_lines
 
 from .access_control import filter_visible_projects, require_admin, require_project_access
 from .auth import get_current_user
@@ -49,7 +52,7 @@ from .schemas import (
     UserInfo,
 )
 from .state_store import read_runtime_status
-from .upload_service import ArchiveTraversalError, extract_archive, find_problem_file
+from .upload_service import ArchiveExtractionError, extract_archive, find_problem_file
 
 
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -725,7 +728,9 @@ def _read_editorial_gate(project: Path) -> dict[str, Any]:
 
 
 def get_steps(settings: Settings, project: Path, base_name: str) -> dict[str, Any]:
-    runtime = read_runtime_status(project, base_name)
+    # Only current_step is consumed here; the submission-fingerprint verification
+    # costs tens of seconds on large projects and must stay off this polled path.
+    runtime = read_runtime_status(project, base_name, include_fingerprint=False)
     current_step = runtime["current_step"]
 
     steps = []
@@ -759,6 +764,57 @@ def get_steps(settings: Settings, project: Path, base_name: str) -> dict[str, An
         "open_issue_items": open_issue_items,
         "paper_available": _find_paper(settings, project, base_name) is not None,
     }
+
+
+def _log_mtime(path: Path) -> float:
+    """mtime, or 0 for a file that vanished mid-request (log rotation)."""
+
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _log_is_non_empty(path: Path) -> bool:
+    try:
+        return path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def recent_logs_payload(project: Path, lines: int) -> dict[str, Any]:
+    """Select the newest non-empty log and return its tail.
+
+    Blocking by design: the route hands this to the threadpool, so the directory
+    scan, the stat calls and the read stay off the event loop.  The selection
+    rule is unchanged from when this body lived inline in the route -- newest
+    mtime wins, non-empty files are preferred, and ``runner.log`` participates --
+    but the read is now bounded to the requested tail.
+    """
+
+    logs_dir = project / "logs"
+    if not logs_dir.is_dir():
+        return {"logs": []}
+
+    candidates: list[Path] = []
+    for pattern in (
+        "step_*.log",
+        "step_*_claude_*.log",
+        "step_*_codex_*.log",
+        "step_*_agy_*.log",
+    ):
+        candidates.extend(logs_dir.glob(pattern))
+    runner_log = logs_dir / "runner.log"
+    if runner_log.is_file():
+        candidates.append(runner_log)
+
+    candidates = sorted(candidates, key=_log_mtime, reverse=True)
+    candidates = [path for path in candidates if _log_is_non_empty(path)] or candidates
+    if not candidates:
+        return {"logs": []}
+
+    recent_log = candidates[0]
+    return {"logs": read_tail_lines(recent_log, lines), "file": recent_log.name}
 
 
 def _check_consultation_pending(project_path: Path) -> tuple[bool, str | None]:
@@ -949,9 +1005,11 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
         if is_archive:
             archive_path = target
             try:
-                extract_archive(archive_path, extract_dir)
+                # Extraction enforces byte/member/time budgets and is blocking
+                # work, so it runs off the event loop.
+                await run_in_threadpool(extract_archive, archive_path, extract_dir)
                 archive_path.unlink(missing_ok=True)
-                problem_file = find_problem_file(extract_dir)
+                problem_file = await run_in_threadpool(find_problem_file, extract_dir)
                 if not problem_file:
                     shutil.rmtree(extract_dir, ignore_errors=True)
                     raise HTTPException(status_code=400, detail="压缩包中未找到题目文件（PDF 或 Markdown）")
@@ -964,7 +1022,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                     "extracted_dir": str(extract_dir),
                     "archive_name": filename,
                 }
-            except ArchiveTraversalError as exc:
+            except ArchiveExtractionError as exc:
                 shutil.rmtree(extract_dir, ignore_errors=True)
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         else:
@@ -993,7 +1051,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Failed to create project: {result.stderr}")
 
-        await manager.broadcast({"type": "project_created", "project": request.base_name, "user": "admin"})
+        await manager.publish_project(settings, request.base_name, {"type": "project_created", "project": request.base_name, "user": "admin"})
         return {
             "status": "ok",
             "message": "Project created successfully",
@@ -1029,12 +1087,14 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             )
         except ProjectNameConflict as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PROJECT_NAME_EXISTS") from exc
-        await manager.broadcast(
+        await manager.publish_user(
+            settings,
+            record.requester,
             {
                 "type": "project_request_created",
                 "request_id": record.id,
                 "requester": current_user.username,
-            }
+            },
         )
         return _project_request_response(record)
 
@@ -1063,7 +1123,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                 actor=current_user.username,
                 failure_reason=result.stderr or result.stdout or "project launch failed",
             )
-            await manager.broadcast({"type": "project_request_failed", "request_id": request_id})
+            await manager.publish_user(settings, record.requester, {"type": "project_request_failed", "request_id": request_id})
             raise HTTPException(status_code=500, detail=failed.failure_reason)
         approved = store.approve_project_request(
             request_id,
@@ -1072,12 +1132,14 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             launch_output=result.stdout,
         )
         store.grant_project_owner(record.base_name, record.requester, actor=current_user.username)
-        await manager.broadcast(
+        await manager.publish_project(
+            settings,
+            record.base_name,
             {
                 "type": "project_created",
                 "project": record.base_name,
                 "user": record.requester,
-            }
+            },
         )
         return _project_request_response(approved)
 
@@ -1092,7 +1154,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
         if record.status != "pending":
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="PROJECT_REQUEST_NOT_PENDING")
         rejected = store.reject_project_request(request_id, actor=current_user.username, reason=decision.note)
-        await manager.broadcast({"type": "project_request_rejected", "request_id": request_id})
+        await manager.publish_user(settings, record.requester, {"type": "project_request_rejected", "request_id": request_id})
         return _project_request_response(rejected)
 
     @router.get("/api/projects", response_model=list[ProjectStatus])
@@ -1106,7 +1168,10 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
     ):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        return _runtime_to_project_status(read_runtime_status(project, base_name), project)
+        # The submission fingerprint is CPU heavy; keep it off the event loop so
+        # one slow project cannot stall every other request.
+        payload = await run_in_threadpool(read_runtime_status, project, base_name)
+        return _runtime_to_project_status(payload, project)
 
     @router.get("/api/projects/{base_name}/diagnostics")
     async def get_project_diagnostics(
@@ -1115,8 +1180,13 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
     ):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        status_payload = read_runtime_status(project, base_name)
-        return build_project_diagnostics(
+        # is_running / consultation_* do not depend on the submission fingerprint;
+        # recomputing it here costs tens of seconds per poll on large projects.
+        status_payload = await run_in_threadpool(
+            read_runtime_status, project, base_name, include_fingerprint=False
+        )
+        return await run_in_threadpool(
+            build_project_diagnostics,
             project,
             base_name,
             is_running=bool(status_payload.get("is_running")),
@@ -1140,31 +1210,16 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
     ):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        logs_dir = project / "logs"
-        if not logs_dir.is_dir():
-            return {"logs": []}
-
-        all_logs = []
-        for pattern in ("step_*.log", "step_*_claude_*.log", "step_*_codex_*.log", "step_*_agy_*.log"):
-            all_logs.extend(logs_dir.glob(pattern))
-        runner_log = logs_dir / "runner.log"
-        if runner_log.is_file():
-            all_logs.append(runner_log)
-        all_logs = sorted(all_logs, key=lambda path: path.stat().st_mtime, reverse=True)
-        all_logs = [path for path in all_logs if path.stat().st_size > 0] or all_logs
-
-        if not all_logs:
-            return {"logs": []}
-
-        recent_log = all_logs[0]
-        content = recent_log.read_text(encoding="utf-8", errors="replace").splitlines()
-        return {"logs": content[-max(1, lines):], "file": recent_log.name}
+        # Directory scanning, stat calls and the tail read are all blocking, and
+        # the tail is read backwards so a multi-megabyte log no longer costs a
+        # full read on the event loop.
+        return await run_in_threadpool(recent_logs_payload, project, lines)
 
     @router.get("/api/projects/{base_name}/steps")
     async def get_project_steps(base_name: str, current_user: UserInfo = Depends(get_current_user(settings))):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        return get_steps(settings, project, base_name)
+        return await run_in_threadpool(get_steps, settings, project, base_name)
 
     @router.get("/api/projects/{base_name}/contest-dashboard")
     async def get_contest_dashboard(
@@ -1173,7 +1228,8 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
     ):
         require_project_access(settings, current_user, base_name)
         project = _resolve_project(settings, base_name)
-        return build_contest_dashboard(project, settings.papers_dir)
+        # Hashes decision receipts; keep the blocking work off the event loop.
+        return await run_in_threadpool(build_contest_dashboard, project, settings.papers_dir)
 
     @router.get("/api/projects/{base_name}/files")
     async def get_files(base_name: str, current_user: UserInfo = Depends(get_current_user(settings))):
@@ -1259,7 +1315,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             result = status_view(project)
         except (FactoryCoreError, OSError, ValueError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        await manager.broadcast({"type": "project_updated", "project": base_name})
+        await manager.publish_project(settings, base_name, {"type": "project_updated", "project": base_name})
         return result
 
     @router.get("/api/projects/{base_name}/joint-modeling/consultation-package")
@@ -1359,7 +1415,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(exc) or "project resume failed",
             ) from exc
-        await manager.broadcast({"type": "consultation_answered", "project": base_name, "gate": request.gate})
+        await manager.publish_project(settings, base_name, {"type": "consultation_answered", "project": base_name, "gate": request.gate})
         return {
             "status": "ok",
             "message": "Consultation answer submitted and project resumed",
@@ -1399,7 +1455,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             direction,
             timestamp=datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        await manager.broadcast({"type": "project_action", "project": base_name, "action": "select_modeling_direction"})
+        await manager.publish_project(settings, base_name, {"type": "project_action", "project": base_name, "action": "select_modeling_direction"})
         return {"status": "ok", "message": "Modeling direction selected", "direction": direction}
 
     @router.get("/api/projects/{base_name}/selection")
@@ -1470,7 +1526,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(exc) or "project resume failed",
             ) from exc
-        await manager.broadcast({"type": "project_action", "project": base_name, "action": "select_option"})
+        await manager.publish_project(settings, base_name, {"type": "project_action", "project": base_name, "action": "select_option"})
         return {"status": "ok", "decision": saved["decision"]}
 
     @router.post("/api/projects/{base_name}/selection/refresh")
@@ -1495,12 +1551,14 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(exc) or "decision request refresh failed",
             ) from exc
-        await manager.broadcast(
+        await manager.publish_project(
+            settings,
+            base_name,
             {
                 "type": "project_action",
                 "project": base_name,
                 "action": "refresh_selection_request",
-            }
+            },
         )
         return {
             "status": "ok",
@@ -1526,7 +1584,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
                 status_code=status.HTTP_409_CONFLICT,
                 detail=result.stderr or result.stdout or "project action failed",
             )
-        await manager.broadcast({"type": "project_action", "project": base_name, "action": action.action})
+        await manager.publish_project(settings, base_name, {"type": "project_action", "project": base_name, "action": action.action})
         return {"status": "ok", "action": action.action, "output": result.stdout}
 
     @router.get("/api/projects/{base_name}/solver-jobs")
@@ -1582,7 +1640,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             if model.backend not in ("claude",) and not model.model.strip():
                 raise HTTPException(status_code=400, detail=f"模型 {model_id} 缺少 model 名称")
         _write_json_atomic(settings.model_registry_file, {"models": [model.dict() for model in payload.models]})
-        await manager.broadcast({"type": "models_updated", "what": "registry"})
+        await manager.publish_admins(settings, {"type": "models_updated", "what": "registry"})
         return {"status": "ok", "count": len(payload.models)}
 
     @router.put("/api/models/config")
@@ -1623,7 +1681,7 @@ def create_project_router(settings: Settings, ticket_store, manager) -> APIRoute
             config.pop(scope, None)
 
         _write_json_atomic(settings.model_config_file, config)
-        await manager.broadcast({"type": "models_updated", "what": "config", "scope": scope})
+        await manager.publish_admins(settings, {"type": "models_updated", "what": "config", "scope": scope})
         return {"status": "ok", "scope": scope, "steps": len(cleaned)}
 
     return router

@@ -109,6 +109,32 @@ def _fallback_status(project: Path, is_running: bool, consultation_pending: bool
     }
 
 
+def _native_state_unavailable(exc: BaseException) -> dict:
+    """Diagnostics for a project whose Native database cannot be read.
+
+    The legacy file-derived status is deliberately *not* offered here: it would
+    look like current state.  Recovery keeps the explicit error and the raw
+    exception text instead.
+    """
+
+    status = {
+        "version": 3,
+        "state": "failed",
+        "current_step": 0,
+        "current_action": "native_state_unavailable",
+        "reason_code": "NATIVE_STATE_UNAVAILABLE",
+        "reason_summary": f"{type(exc).__name__}: {exc}",
+        "suggested_actions": ["open_audit_timeline", "refresh_status"],
+        "evidence": [{"kind": "database", "path": ".factory/state.db"}],
+    }
+    return {
+        "source": "native_state_unavailable",
+        "status": status,
+        "events": [],
+        "actions": [{"id": action_id} for action_id in status["suggested_actions"]],
+    }
+
+
 def build_project_diagnostics(
     project: Path,
     base_name: str,
@@ -290,10 +316,12 @@ def build_project_diagnostics(
                             {"id": "retry_human_decision_commit"}
                         )
                 return {"source": "workflow_events", **projected}
-        except (OSError, RuntimeError, ValueError):
-            # A corrupt or unsupported Native database must not hide the legacy
-            # diagnostic fallback used by operators during recovery.
-            pass
+        except (OSError, RuntimeError, ValueError) as exc:
+            # The Native database exists but cannot be read.  Report that plainly
+            # instead of silently substituting the legacy files, which would
+            # present a stale status as the current one.  NativeBoundaryError
+            # subclasses ValueError, so an unsupported database lands here too.
+            return _native_state_unavailable(exc)
     status = load_status(project)
     events = load_recent_events(project, limit=5)
     if status:

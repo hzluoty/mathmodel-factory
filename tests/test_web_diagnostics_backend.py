@@ -85,6 +85,34 @@ def test_native_workflow_event_projection_beats_runner_files(tmp_path):
     assert diag["recovery"]["latest"]["canonical_type"] == "GATE_BLOCKED"
 
 
+def test_corrupt_native_database_does_not_silently_use_legacy_files(tmp_path):
+    """A present-but-unreadable Native database must be reported, not papered over.
+
+    The legacy ``diagnostics/status.json`` below is deliberately stale.  An
+    earlier revision swallowed the read failure and returned that file as the
+    current status, which made a broken database indistinguishable from a
+    healthy project.
+    """
+
+    write_file(tmp_path / ".factory" / "state.db", "definitely not a sqlite database")
+    write_file(
+        tmp_path / "diagnostics" / "status.json",
+        '{"state":"running","reason_code":"STALE","suggested_actions":[]}\n',
+    )
+
+    diag = build_project_diagnostics(
+        tmp_path,
+        "demo",
+        is_running=False,
+        consultation_pending=False,
+        consultation_gate=None,
+    )
+
+    assert diag["source"] == "native_state_unavailable"
+    assert diag["status"]["reason_code"] == "NATIVE_STATE_UNAVAILABLE"
+    assert diag["status"]["reason_code"] != "STALE"
+
+
 def test_native_diagnostics_reports_orphaned_decision_projection(tmp_path):
     store = SQLiteStateStore(tmp_path, clock=lambda: 100)
     initial = store.initialize(project_id="demo", project_type="modeling")

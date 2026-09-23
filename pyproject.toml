@@ -37,6 +37,10 @@ cloud = [
   "sympy>=1.12,<2",
   "uvicorn[standard]==0.47.0",
 ]
+tui = [
+  "textual==8.2.8",
+  "websockets==16.0",
+]
 
 [dependency-groups]
 dev = [
@@ -48,6 +52,7 @@ dev = [
 
 [project.scripts]
 factory = "factory_core.cli:main"
+factory-tui = "apps.tui.__main__:main"
 
 [build-system]
 requires = ["setuptools>=68"]

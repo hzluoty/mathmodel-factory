@@ -22,8 +22,16 @@ def load_app_module():
     sys.modules.pop("fastapi.security", None)
 
     import os
+    import tempfile
     os.environ["JWT_SECRET"] = "0123456789abcdef0123456789abcdef"
     os.environ["ADMIN_PASSWORD"] = "strong-password"
+    # Importing the app runs AuthStore.bootstrap_admin, which rewrites the admin
+    # password in whatever database AUTH_DB_FILE names.  Without this the import
+    # landed on the repository's live web/auth.db and replaced the running
+    # dashboard's admin credential with the literal above.
+    os.environ["AUTH_DB_FILE"] = os.path.join(
+        tempfile.mkdtemp(prefix="pf-step8_5-auth-"), "auth.db"
+    )
 
     fastapi = types.ModuleType("fastapi")
 

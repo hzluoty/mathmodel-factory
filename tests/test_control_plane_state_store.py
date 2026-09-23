@@ -201,3 +201,30 @@ def test_write_status_preserves_zero_timestamps(tmp_path):
     runtime = mod.read_runtime_status(tmp_path, "demo")
 
     assert runtime["last_updated"] == 0
+
+
+def test_native_engine_status_does_not_read_legacy_selection_files(tmp_path, monkeypatch):
+    """The Native path derives selection state from ``pending_action``.
+
+    Reading the legacy selection files there only produced a value that the next
+    statement overwrote, so the file read must not happen at all.
+    """
+
+    from factory_core.storage import SQLiteStateStore
+
+    store = SQLiteStateStore(tmp_path, clock=lambda: 100)
+    store.initialize(project_id="demo", project_type="modeling")
+
+    mod = load_state_store_module()
+
+    def fail(*_args, **_kwargs):
+        raise AssertionError("Native status must not read legacy selection files")
+
+    monkeypatch.setattr(mod, "_read_selection", fail)
+
+    runtime = mod.read_runtime_status(tmp_path, "demo", include_fingerprint=False)
+
+    assert runtime["status"]
+    assert runtime["selection_pending"] is False
+    assert runtime["selection_gate"] is None
+    assert runtime["selection_deadline"] is None

@@ -161,7 +161,7 @@
     <NewProjectModal v-if="isAuthenticated && showNew" :is-admin="isAdmin" @close="showNew = false" @project-created="onCreated" @project-requested="onRequested" />
     <AdminPanel v-if="isAuthenticated && showAdmin" @close="showAdmin = false" @changed="onAdminChanged" />
     <ProjectRequestsPanel v-if="isAuthenticated && showRequests" :admin="isAdmin" @close="showRequests = false" @changed="onAdminChanged" />
-    <CommandPalette v-if="isAuthenticated" :visible="showPalette" :projects="projects" @close="showPalette = false" @open-project="openByBase" @new-project="openNew" @toggle-theme="toggleTheme" />
+    <CommandPalette v-if="isAuthenticated && showPalette" :visible="showPalette" :projects="projects" @close="showPalette = false" @open-project="openByBase" @new-project="openNew" @toggle-theme="toggleTheme" />
     <ModelManager v-if="isAuthenticated && showModels && isAdmin" @close="showModels = false" @saved="() => {}" />
     <ShowcasePaperViewer v-if="selectedShowcasePaper" :paper="selectedShowcasePaper" @close="selectedShowcasePaper = null" />
   </template>
@@ -171,6 +171,7 @@
 import { computed, defineAsyncComponent, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from './components/Icon.vue'
+import AsyncLoadError from './components/AsyncLoadError.vue'
 import Toasts from './components/Toasts.vue'
 import LoginForm from './components/LoginForm.vue'
 import ProjectCard from './components/ProjectCard.vue'
@@ -186,11 +187,19 @@ import { useProjects } from './composables/useProjects.js'
 import { useRealtime } from './composables/useRealtime.js'
 import { runAuthenticatedStartup, runLoginFlow } from './lib/appStartup.js'
 
+// A failed lazy chunk must fail loudly instead of leaving the loading fallback
+// on screen forever (Vue keeps the loading component when no error component is
+// configured), so every async surface also gets this error state.
+const AsyncOverlayError = {
+  render: () => h(AsyncLoadError),
+}
+
 // Lazy-loaded overlay: only mounted when a project is opened. Pulls the whole
 // ProjectWorkspace subtree (and KaTeX, via markdown.js) out of the initial bundle.
 const ProjectWorkspace = defineAsyncComponent({
   loader: () => import('./components/ProjectWorkspace.vue'),
   loadingComponent: { render: () => h('div', { class: 'ws-overlay-loading' }, [h('div', { class: 'spinner' })]) },
+  errorComponent: AsyncOverlayError,
   delay: 120,
 })
 
@@ -198,11 +207,13 @@ const AsyncOverlayFallback = {
   render: () => h('div', { class: 'overlay-loading panel' }, [h('div', { class: 'spinner' })]),
 }
 
-const AsyncNewProjectModal = defineAsyncComponent({ loader: () => import('./components/NewProjectModal.vue'), loadingComponent: AsyncOverlayFallback, delay: 120 })
-const AsyncCommandPalette = defineAsyncComponent({ loader: () => import('./components/CommandPalette.vue'), loadingComponent: AsyncOverlayFallback, delay: 120 })
-const AsyncModelManager = defineAsyncComponent({ loader: () => import('./components/ModelManager.vue'), loadingComponent: AsyncOverlayFallback, delay: 120 })
-const AsyncAdminPanel = defineAsyncComponent({ loader: () => import('./components/AdminPanel.vue'), loadingComponent: AsyncOverlayFallback, delay: 120 })
-const AsyncProjectRequestsPanel = defineAsyncComponent({ loader: () => import('./components/ProjectRequestsPanel.vue'), loadingComponent: AsyncOverlayFallback, delay: 120 })
+const asyncOverlayOpts = { loadingComponent: AsyncOverlayFallback, errorComponent: AsyncOverlayError, delay: 120 }
+
+const AsyncNewProjectModal = defineAsyncComponent({ loader: () => import('./components/NewProjectModal.vue'), ...asyncOverlayOpts })
+const AsyncCommandPalette = defineAsyncComponent({ loader: () => import('./components/CommandPalette.vue'), ...asyncOverlayOpts })
+const AsyncModelManager = defineAsyncComponent({ loader: () => import('./components/ModelManager.vue'), ...asyncOverlayOpts })
+const AsyncAdminPanel = defineAsyncComponent({ loader: () => import('./components/AdminPanel.vue'), ...asyncOverlayOpts })
+const AsyncProjectRequestsPanel = defineAsyncComponent({ loader: () => import('./components/ProjectRequestsPanel.vue'), ...asyncOverlayOpts })
 
 export default {
   name: 'App',
@@ -440,8 +451,17 @@ export default {
       router.replace(target).catch(() => {})
     })
 
+    // Keep the palette warm without blocking anything: the chunk is fetched in
+    // the background, and a failure is swallowed here instead of holding the
+    // console behind a loading overlay (see lib/chunkRecovery.js for the
+    // stale-cached-build case).
+    function warmOverlays() {
+      import('./components/CommandPalette.vue').catch(() => {})
+    }
+
     onMounted(async () => {
       await checkAuth()
+      if (isAuthenticated.value) void warmOverlays()
       window.addEventListener('keydown', onKey)
     })
     onUnmounted(() => {

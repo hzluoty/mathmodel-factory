@@ -1,5 +1,5 @@
 <template>
-  <transition name="pal">
+  <transition name="pal" appear>
     <div v-if="visible" class="pal-overlay" @click.self="$emit('close')">
       <div class="pal panel">
         <div class="pal-in">
@@ -73,11 +73,21 @@ export default {
       return all.filter((it) => it.label.toLowerCase().includes(q) || (it.sub || '').toLowerCase().includes(q))
     },
   },
+  mounted() {
+    // The console now mounts this component only once it is opened, so the
+    // `visible` watcher below would not fire for the first open.
+    if (this.visible) this.resetAndFocus()
+  },
   watch: {
-    visible(v) { if (v) { this.query = ''; this.active = 0; this.$nextTick(() => this.$refs.input?.focus()) } },
+    visible(v) { if (v) this.resetAndFocus() },
     query() { this.active = 0 },
   },
   methods: {
+    resetAndFocus() {
+      this.query = ''
+      this.active = 0
+      this.$nextTick(() => this.$refs.input?.focus())
+    },
     move(d) {
       if (!this.items.length) return
       this.active = (this.active + d + this.items.length) % this.items.length

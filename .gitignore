@@ -33,6 +33,10 @@
 # (markdown analysis lives in docs/reference/)
 /external/
 
+# Shut-down personal site checkout (gitlink removed from this repo on 2026-09-22;
+# the directory keeps its own .git history). Kept on disk, not part of the factory.
+/xhxmt.github.io/
+
 # Local agent / brainstorming workspace (not part of the factory)
 .superpowers/
 /artifacts/superpowers/
@@ -77,6 +81,7 @@ web/**/*.tar.gz
 /build/
 /work/
 /.pytest_cache/
+/_winverify/
 /fibonacci_results.txt
 
 # Editor and OS files

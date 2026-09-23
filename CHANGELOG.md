@@ -1,5 +1,117 @@
 # Changelog
 
+## 2026-09-22 — TUI 客户端 M4：打磨与文档（M0–M3 收尾）
+
+- 用 `uvx ruff check`（ruff 0.16.8）对 `apps/tui/` 与 TUI 测试做了一次真实 lint，而不是目测。修掉 13 项：1 处未使用导入（F401）、4 处导入顺序（I001）、7 处多余引号注解（UP037，各文件都有 `from __future__ import annotations`，引号本就冗余）、1 处函数末尾多余的 `return None`（RET501/PLR1711），并把 3 处自返回 dunder（`__aenter__`/`__aiter__`）的注解改为 `typing.Self`（PYI034）。
+- **有意保留、并逐条给出理由的 13 项**（本仓没有 ruff 配置，ruff 的默认宽集并非本仓既定标准，因此不盲目照改）：
+  - `RUF012`（4 处）：Textual 的 `CSS`/`BINDINGS` 就是普通类属性，加 `ClassVar` 属噪声。
+  - `TRY004`（6 处）：归一化函数对「载荷不是 dict」抛 `ValueError`。改成 `TypeError` 反而**更危险**——各调用点统一捕获 `ValueError` 并包装为 `ControlPlaneError`，拆出第二种异常类型会在 6 个调用点制造未捕获路径，而行为毫无差别。
+  - `UP017`（1 处）：`timezone.utc` → `datetime.UTC` 会让该文件与本仓主流不一致（全仓 `timezone.utc` 6 处、`datetime.UTC` 0 处）。
+  - `SIM102`（1 处）：合并嵌套 `if` 会让「已停止项目只取一次」的注释离开它所解释的那个条件。
+  - `BLE001`（1 处）：重连循环里的 `except Exception` 是刻意设计——任何失败都应转为退避重连，而不是让 feed 任务静默死掉；`CancelledError` 已在其上方单独放行。
+- footer 去重：应用级 `Ctrl+Q` 改为 `show=False`，不再与各屏的 `q` 重复显示「退出」（实测 footer 现为 `o 详情 | r 重连 | q 退出`）。
+- 资源检查：以 `-W error::ResourceWarning` 跑全部 TUI 测试，无任何告警——我在 M2 复核里提到的「未关闭 socket」并不成立，此处撤回该条目。
+- 文档：`README.md` 新增「TUI 客户端（终端）」一节及「包含内容」条目；`web/README.md` 新增「终端客户端（TUI）」一节，含启动命令、完整键位表与刷新节奏说明。
+- 测试 74 例通过（67 TUI + 7 部署 preflight）；端到端冒烟（登录 → 项目表 → 详情 → 日志 → 过滤）复跑通过。
+
+
+## 2026-09-22 — TUI 客户端 M3：日志尾随（/logs 轮询）
+
+- `apps/tui/client.py`：新增 `project_logs(base_name, lines=200)`，行数下限夹到 1（后端为 `max(1, lines)`），使用 `HEAVY_TIMEOUT`，`base_name` 经 URL 转义。
+- `apps/tui/contracts.py`：新增 `LogsView` 与 `normalize_logs`。后端在无日志时返回 `{"logs": []}` 且**不带 `file` 键**，归一化按缺省处理。
+- `apps/tui/screens/detail.py`：新增日志面板（`l` 在「阶段与产物」与「日志」两个下方面板间切换），显示文件名、显示/总行数、跟随/暂停状态与最后更新时间。`p` 暂停/恢复跟随，`f` 过滤（子串、大小写不敏感、边输边过滤），`end` 跳到末尾并恢复跟随。**Esc 在过滤框打开时先关过滤框**，不会把操作员直接弹出屏幕。
+- 轮询策略（刻意保守）：单一 5s 定时器；重投影每 3 个 tick（15s）刷新一次，日志每 tick 一次——一个定时器服务两种节奏，避免为日志再引入一个更快的时间源。
+- **只在必要时才轮询日志**：仅当日志面板可见、处于跟随状态、且（项目在运行 或 尚未取过任何日志）时才请求。已停止的项目只取一次，之后不再打扰；面板隐藏时永不请求。挂载时的 `_load()` 同样只在面板可见时才拉日志。
+- 在途守卫按流独立：重投影与日志各有一个在途标志，tick 落在加载中途即被丢弃，不排队也不取消。
+- 「无内容」与「取不到」仍可区分：日志加载失败在摘要行显示「日志加载失败：…」，不会被误读成「日志是空的」。
+- 测试累计 84 例（含部署 preflight）：新增 `tests/test_tui_logs.py`（10 例）与客户端层日志契约测试。定时器回调被直接调用，因此轮询节奏与其触发条件可**确定性**断言，无需等待真实时间。
+
+### 顺带发现的后端隐患（本里程碑未修改，避免越界）
+`/logs` 是普通 `async def`，**没有**像 `/steps`、`/diagnostics`、`/contest-dashboard` 那样走 `run_in_threadpool`（2026-09-18 那次修复只覆盖了后三个），并且它先 `read_text()` **整个文件**再切最后 N 行。本机真实日志最大 **8.2 MB**（4–6.5 MB 的有多个），因此 `?lines=200` 的每次请求都会让后端在**事件循环上同步读取整个文件**、再把其中 99% 丢掉——与 2026-09-18 记录的问题同类。TUI 因此刻意取 5s（而非计划中的 3s），并只在面板可见且项目运行时轮询，以把影响压到最小。彻底的修法是把 `/logs` 移入线程池、并只读文件尾部若干字节；那属后端改动，需另行确认。
+
+
+## 2026-09-22 — TUI 客户端 M2：项目详情（阶段产物 + 阻塞面板）
+
+- `apps/tui/client.py`：新增只读投影 `project_steps` / `project_diagnostics`，两者使用独立的 `HEAVY_TIMEOUT`（90s）而非 15s 交互上限——后端把它们放在线程池里执行，在大项目上会合法地超过交互时限。该接缝在 M0 就已留出，此处首次真正使用。`base_name` 经 URL 转义。
+- `apps/tui/contracts.py`：新增 `Artifact`/`Step`/`StepsView`/`Evidence`/`DiagnosticsView` 及归一化。诊断的阻塞信息在**所有**后端分支中都嵌在 `status` 之下（已核对 `_fallback_status`、`_native_state_unavailable`、`build_project_diagnostics`、replay 失败分支四处）；缺少 `status` 视为契约变更，而非"无阻塞"。evidence 的额外标量字段被折叠进 `summary`，因此后端新增一种 evidence kind 无需改动终端代码。**TUI 不内置 reason_code 映射表**，直接展示后端给出的 `reason_summary`，避免浏览器与终端各自维护一套工作流知识。
+- `apps/tui/screens/detail.py`：详情屏 = 进度条 + 阻塞面板（headline / state / 当前动作 / 来源 / 建议动作 / 证据清单）+ 阶段产物表（只渲染有产物的阶段与当前阶段，并标 `← 当前`）+ 汇总行（阶段总数、裁判结论、未决问题、是否已有论文）。
+- 刷新策略：单一加载器 + **在途守卫**。若一次加载尚未返回，定时 tick 被丢弃，而不是排队或被取消——取消会让慢项目永远加载不完，排队则会继续压迫已经繁忙的后端。间隔取 15s 而非计划中的 8s，理由是本仓 2026-09-18 的条目记录过后端事件循环被激进轮询压垮的问题。
+- 修正两处由测试发现的真实缺陷：
+  1. 阶段摘要与加载状态原先写在同一个 `Static` 上，`_load` 结束时的「已更新」会**覆盖**摘要，导致摘要信息实际丢失。现在摘要使用独立的 `#steps-summary`。
+  2. `DataTable` 自身绑定了 Enter（`select_cursor`），因此屏幕级 `enter` 绑定在表格获得焦点时**永不触发**，详情根本打不开。改为处理 `DataTable.RowSelected`；`o` 保留为备用键。
+- 非阻塞项目显示「无阻塞记录」而非留空；加载失败则接管面板（「诊断加载失败：…」）。两者视觉上可区分，「取不到」不会被误读为「没问题」。
+- 测试累计 59 例（含部署 preflight）：新增 `tests/test_tui_reads.py` 与 `tests/test_tui_detail.py`。其中超时预算是**行为验证**而非常量比对——用一个真实本地 HTTP 服务器延迟 250ms，证明 50ms 的交互上限会杀掉 login、却不会杀掉投影。（自定义 `httpx` transport 无法用于此测试：超时由具体 transport 实施，假 transport 根本不会抛 `ReadTimeout`。）
+
+
+## 2026-09-22 — TUI 客户端 M1：实时项目表（WS 接入）
+
+- `apps/tui/realtime.py`：`/ws` 实时 feed。三条后端事实决定了它的形状：票据**一次性且 60s 过期**（因此每次连接尝试都重新签发，包括首次）；WS **只推项目状态、不推日志**（日志留待 M3 轮询）；断开是常态而非异常（后端重启、账号被禁用、空闲超时都会关闭连接），因此 feed 通过 `on_state` 上报 `connecting`/`live`/`disconnected` 而不抛异常，并以指数退避（1s → 30s 封顶）重连直到 `stop()`。
+- 退避在一次成功 live 会话后**重置**，避免长期连接掉线后继承一个已经膨胀的延迟。
+- `apps/tui/screens/projects.py`：`DataTable` 项目表，按 `base_name` **原地 upsert**（`update_cell`）而非每 2s 重建——重建会把光标与滚动位置在操作员手下重置。消失的项目被移除；连接状态以 `● 实时` / `◌ 连接中` / `○ 已断开` 常驻显示，不静默假装数据仍然新鲜。
+- 修正一处真实缺陷（由测试发现）：`status_update` 中若列表**非空**但所有条目都缺 `base_name`，原先会产出空快照并**清空整个项目表**。现在只有原生空列表（确实没有可见项目）才清空；非空列表解析全失败视为契约问题，不清表。
+- 删除 M0 的 `screens/home.py` 占位屏；`ProjectsScreen` 不再接收从未被读取的 `session` 参数。
+- `tui` extra 补入 `websockets==16.0`（此前只在 `web` extra 中，`--extra tui` 单独安装不出来）。
+- 测试累计 42 例（含部署 preflight）：投递路径由**本地真实 WebSocket 服务器**端到端覆盖（票据握手、URL 构造、帧解码、归一化）；重连与退避由脚本化 connector + 注入 sleep 确定性断言（含 30s 封顶与 live 后重置）；另覆盖坏帧忽略、不可键快照不清表、`stop()` 幂等。已对真实后端确认 `/ws` 端点形状：无票据或错误票据在握手期即被拒绝。
+
+
+## 2026-09-22 — TUI 客户端 M0：骨架与登录（Web 控制平面的终端客户端）
+
+- 新增 `apps/tui/`：Textual 终端客户端，定位为 `web/backend` 的**只读客户端**，不复制任何工作流逻辑——它渲染的字段全部来自现有投影，避免浏览器与终端两套投影各自漂移。
+- 新增 `tui` 可选依赖组（`textual==8.2.8`）与入口点 `factory-tui`（同时支持 `python -m apps.tui`），并新增 `run_tui.sh` 启动器；缺少 `textual` 时启动器给出 `uv sync --extra tui` 的明确提示而不是抛 traceback。
+- `apps/tui/client.py`：REST/WS 传输层。失败按可重试语义分类为 `ConnectionFailed` / `AuthError` / `ForbiddenError`，而不是把状态码塞进一条字符串；交互请求沿用前端 15s 上限，重投影（`/diagnostics`、`/steps`）使用独立的 90s 预算。`access_token` 仅驻内存，不落盘、不渲染。
+- `apps/tui/screens/login.py`：凭据仅在一次请求内存在，失败信息不回显密码；`apps/tui/screens/home.py` 为登录后占位屏，M1 将由实时项目表替换。
+- 测试：`tests/test_tui_client.py`（`httpx.MockTransport` 假后端）与 `tests/test_tui_app.py`（Textual `run_test` 无头 Pilot），共 22 例通过；未新增 dev 依赖（用 `asyncio.run` 而非 `pytest-asyncio`）。
+- 已对真实后端 `127.0.0.1:8000` 做契约冒烟：`GET /` 返回 API banner，无效凭据正确映射为 `AuthError`；登录屏经无头渲染确认（标题、后端地址、用户名/密码、登录/退出）。
+- 合并提示：本条目与 `fix/audit-lease-deadlock-and-realtime-scope` 上未提交的 Tier-0 瘦身条目都新增在 CHANGELOG 顶部，合并时此处会出现一处易解的冲突。
+
+## 2026-09-22 — 修复 /logs 在事件循环上全量读取日志
+
+- 症状：`GET /api/projects/{n}/logs` 是普通 `async def`，**未**走 `run_in_threadpool`（2026-09-18 的修复只覆盖了 `/steps`、`/diagnostics`、`/contest-dashboard`），并且先 `read_text()` **整个文件**再切末尾 N 行。本机真实日志最大 **8.2 MB**，因此 `?lines=200` 的每次请求都会让后端在事件循环上同步读取、并丢掉其中几乎全部——与 2026-09-18 记录的问题同类。TUI 的日志面板（M3）会轮询该端点，故影响被放大。
+- 修复 `web/backend/project_api.py`：把目录扫描、`stat` 与读取整体移出路由，交给 `run_in_threadpool(recent_logs_payload, project, lines)`；选取规则（最新 mtime 优先、跳过空文件、`runner.log` 参与）逐条保持不变，并对读取途中日志被轮转（`stat` 抛 `OSError`）增加容错。
+- 新增 `web/backend/log_tail.py`：`read_tail_lines()` 从文件末尾按块反向读取，并把收集到的字节**一次性解码**——逐块解码会把跨块边界的多字节字符切坏。`max_bytes`（默认 1 MiB）是硬上限，逐块按剩余额度收紧；窗口起点若落在文件中间，则丢弃可能残缺的首行。
+- 实测（本机 `complete/cumcm2024b_no_judge_rep1/logs/step_5_codex_step5_full_solve_20260605_023516.log`，8.20 MB）：结果与旧的「全量读取再切片」**完全一致**，耗时 80.2 ms → **0.541 ms（148×）**，且不再占用事件循环。
+- 测试：新增 `tests/test_log_tail.py`（16 例，含用字节计数桩**证明读取确实有界**、以 7 字节块强制跨多字节字符边界、`max_bytes` 上限行为、缺失/空文件、传入目录等）；`tests/test_web_control_plane_api.py` 新增 4 例，其中一例以**线程身份**证明该 handler 已不在事件循环线程上执行——去掉线程池跳转该测试即失败（已做 falsification 验证，确认测试非空转）。相关集合 64 例通过。
+
+
+## 2026-09-22 — 隔离测试对生产认证库的写入（修复 admin 密码被测试覆盖的事故）
+
+- 事故：2026-09-20T12:13:33Z，`web/auth.db` 中 `admin` 的 `password_hash` 被改写为**仓库里已提交的测试字面量**（`tests/test_showcase_acl.py`、`tests/test_secret_ops_api.py`、`tests/test_control_plane_auth.py` 三处同值），而登录入口在 `0.0.0.0:443` 公网可达——等同于把 admin 凭据公开。审计依据：`audit_log` 第 45 行 `user.bootstrap_admin_sync {"password_updated": true}`，且 `web/auth.db` mtime `12:13:33.453` 与之毫秒级吻合；服务进程自 09-18 13:22 起未重启，故写入者不是服务本身。
+- 根因：`web/backend/main.py` 在 **import 时** 调用 `AuthStore.bootstrap_admin`，而 `AuthStore` 在 `AUTH_DB_FILE` 未设置时回落到 `<factory_root>/web/auth.db`。于是任何 import 后端 app 并自带 `ADMIN_PASSWORD` 的测试，都会把该密码写进正在运行的控制台所用的库。`tests/test_web_step8_5_metadata.py` 正是如此：它设置 `ADMIN_PASSWORD`，却不设 `AUTH_DB_FILE`/`FACTORY_ROOT`。
+- 已在未修复的检出上复现：仅运行该测试文件即创建 `<repo>/web/auth.db`，其 admin 哈希等于该测试的字面量（单用户 `admin`）。该复现产物保存在 `/tmp/repro-web-auth.db` 备查。
+- 修复 `tests/conftest.py`：在 **collection 之前**（conftest 模块导入期）把 `AUTH_DB_FILE` 重定向到仓库外的临时路径，因此 collection 期与用例期的 app import 都无法触达仓库库；使用 `setdefault`，自行设置该变量的测试行为完全不变（已确认无测试依赖其缺省）。
+- 新增 session 级 autouse 护栏：若测试期间 `<repo>/web/auth.db` 字节发生变化，整个会话以错误失败。该库为 `journal_mode=delete`（无 WAL 边车文件），故字节比对是可靠信号；提示信息同时说明"服务在其间被重启"也会改写该文件，避免误判。
+- 纵深防御：在肇事测试内显式设置 `AUTH_DB_FILE`。
+- 新增 `tests/test_auth_db_isolation.py` 固定该契约：断言 `AUTH_DB_FILE` 指向仓库之外，且 import 后端 app 前后仓库库字节不变。
+- 验证：修复后相关集合 94 例通过（auth/web/hygiene/joint-modeling/secret/deploy），且仓库库始终未被创建；护栏经临时探针验证会以会话错误形式失败。
+- 运维记录：生产 admin 密码已通过重启 `paper-factory-api.service` 从 GCP Secret Manager 重新同步（审计 `user.bootstrap_admin_sync` id=46，`password_updated: true`），并确认此前泄露的测试字面量已无法登录。注意 `bootstrap_admin` 使 Secret Manager 成为权威来源，因此直接改 `web/auth.db` 或本地 `.env` 都会在下次启动时被覆盖。
+
+
+## 2026-09-22 — Tier 0 仓库瘦身：清除退役资产与死引用
+
+- 删除 `prompts/` 中 34 个全仓零引用的社会科学时代模板（step1a–1e、step2_findings_*、step3_decider、step4_architect/auditor/decider/executor/ext1–7、step5_argument_research、step5_data_audit、step6_methods_audit、step7_paper_writer、step8_code_review、step9_review、step10_revision、step11_final_review、step12_citation_audit、step13_gate2_judge、step13_table_formatting、step15_derobotification）。保留 catalog/specialized 引用的 17 个现役模板与 `judges/` 三件套；`step13_gate2_judge.txt` 仅被历史文档引用，一并移除，历史版本经 Git 查询。
+- 删除 `scripts/` 中 12 个零引用脚本：ablation_monitor.sh、collect_verification_data.sh、delivery_override.py、quick_setup.sh、step13_judge_cache.py、test_p0_p1_fixes.sh、test_rerun0706_regression.sh、verify_numbers_legacy.py、verify_p0_lightweight.sh、verify_p0_lightweight_v2.sh、verify_p1_lightweight.sh、generate_code_appendix.py。核查同时确认 step8_5_gate.py、workflow_state.py、delivery_contract.py、evidence_payload_policy.py、publish_release.py、validate_cloudbuild.py 仍被 factory_core 或测试 import，均保留。
+- `submission_fingerprint.py` 哈希清单锁定的 judge/governance 脚本（packet_context、packet_evidence、solver_evidence_selection、run_codex_tui_judge、decision_receipt_repair、shadow_cutover、capability_harness 等）与数据抓取器（fetch_benchmark.sh、dxs_*.py）全部保留。
+- 移除 `demo_site/`（6 个 tracked 文件的静态演示页，零活引用）与 `xhxmt.github.io` 裸 gitlink（站点已按 2026-07-01 shutdown 计划关闭；物理检出保留在磁盘并加入 `.gitignore`，其自带 `.git` 历史完整）。
+- 清理游离的 `legacy/shell/__pycache__` 遗留物。`external/`、`work/`、`archive/`、`benchmark/` 等本地 gitignored 数据保持原位。
+
+## 2026-09-18 — 修复项目工作台请求超时（审计重算堵塞事件循环）
+
+- 症状：打开项目后大面积出现「请求超时，请稍后重试」，任务图面板长期停在「正在加载任务图」。
+- 根因：工作台每 8 秒轮询 `/steps`、`/diagnostics`、`/contest-dashboard`，而这些 `async def` handler 直接在事件循环上做同步重活（单项目 `submission_fingerprint` 12s、`build_project_diagnostics` 11s、`build_contest_dashboard` 6.5s）。实测一个 `/diagnostics` 会把 `/problem-plan`（独立耗时 5.6ms）拖到 24.3s，前端 15s 上限因此全线超时。
+- `/steps` 与 `/diagnostics` 改为 `include_fingerprint=False`：两者只消费 `current_step` 与 `is_running`/`consultation_*`，不依赖证据指纹。`/steps` 由 12.1s 降到 0.08s。
+- `/status`、`/diagnostics`、`/steps`、`/contest-dashboard` 的阻塞工作在 `run_in_threadpool` 中执行，单个慢项目不再冻结事件循环（并发重压下 `/problem-plan` 由 24.3s 降到 1.7s）。
+- 修复 `factory_core/current_artifact_ownership.artifact_ownership` 的匹配病理：此前每个路径对约 88 条规则逐条重做路径规范化与 globstar 变体展开（单次请求 46 万次匹配）。现在路径只规范化一次、变体按 pattern 记忆化并对整次查找加 LRU 缓存；与冻结 v1 匹配器保持完全等价（新增 `tests/test_current_artifact_ownership_equivalence.py` 绑定该契约），全量扫描 1.95s → 0.22s。
+- 前端：`/status`、`/diagnostics`、`/contest-dashboard` 使用独立的 60s 审计超时，避免大项目的合法长计算被 15s 交互上限误判为超时。
+
+## 2026-09-18 — 修复控制台卡在加载兜底层（过期构建缓存）
+
+- 修复「登录后整页一直停在全屏 spinner」：`CommandPalette` 原先以 `v-if="isAuthenticated"` 常驻渲染，等于每次启动都预载该 chunk；当浏览器仍在运行旧构建、对应 chunk 已被新部署删除（404）时，`defineAsyncComponent` 会永久停留在 loading 兜底层并盖住整个控制台。现在只在打开面板时挂载，启动后改为后台静默预热。
+- 所有懒加载组件补上 `errorComponent`（新增 `AsyncLoadError`）：chunk 加载失败显示「界面资源加载失败 + 重新加载」，不再永久转圈。
+- 新增 `web/frontend/src/lib/chunkRecovery.js`：监听 `vite:preloadError`，对同一入口 bundle 只做一次受保护整页刷新；`index.html` 内联脚本覆盖入口 chunk 404 的最坏情况（整页空白）。
+- 生产缓存契约：nginx 对 `/`（HTML 文档）返回 `Cache-Control: no-cache`，带 hash 的 `/assets/*` 仍是 `public, immutable`。
+- `web/deploy.sh` 不再 `rm -rf "$WEB_ROOT"/*`：改为覆盖同步并只回收超过 `STALE_ASSET_DAYS`（默认 14 天）的历史资源，避免旧 `index.html` 引用已删除的 chunk；部署验收新增首页 `Cache-Control` 检查。
+- 更新 `web/docs/deployment/DEPLOYMENT.md` 的前端缓存契约与「控制台卡在全屏转圈」处置步骤。
+
 ## 2026-09-16 — Native mainline source split
 
 - Moved Authority/Phase 3–9, shadow Web surfaces and Legacy runners/tests/docs to a complete tracked-source baseline at `~/paper_new`; recorded hashes and relocation inventory.

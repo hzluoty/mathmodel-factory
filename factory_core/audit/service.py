@@ -904,6 +904,15 @@ class FinalAuditService:
             self.factory_root, runner=self.runner
         ).paper_checks(project)
         provenance_report = project / "provenance_verification.latest.txt"
+        # verify_provenance reads the workflow state database through
+        # SQLiteStateStore, which takes the same project lease this audit holds
+        # for the whole acceptance path.  A child cannot inherit that lease
+        # implicitly, so pass the descriptors that carry it: otherwise the parent
+        # waits for the child while the child waits for the lock its own parent
+        # is holding, and the audit only ends when the runner timeout fires.
+        from ..state_lease import child_lease_handoff
+
+        lease_env, lease_fds = child_lease_handoff(project)
         provenance = self.runner.python(
             self.factory_root,
             project,
@@ -913,6 +922,8 @@ class FinalAuditService:
             timeout_seconds=600,
             accepted=(0,),
             log_path=provenance_report,
+            env=lease_env,
+            pass_fds=lease_fds,
         )
         checks.append(
             StageCheck(
